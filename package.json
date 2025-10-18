@@ -79,4 +79,26 @@
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
   }
+
+}
+{
+"name": "my-v0-project",
+"version": "0.1.0",
+"private": true,
+"engines": { "node": ">=18 <19" },
+"packageManager": "pnpm@10.18.3",
+"scripts": {
+"build": "next build",
+"dev": "next dev",
+"start": "next start",
+"lint": "next lint"
+},
+"dependencies": {
+"ai": "5.0.76",
+"zod": "^3.25.76",
+"...": "..." // keep your other deps as-is
+},
+"devDependencies": {
+"...": "..."
+}
 }
