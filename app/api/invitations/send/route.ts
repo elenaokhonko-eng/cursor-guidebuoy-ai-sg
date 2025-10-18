@@ -90,13 +90,15 @@ export async function POST(request: NextRequest) {
     // Get user profile for email
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single()
 
-    const html = render(InvitationEmail({
-      inviterName: profile?.full_name || user.email || "A user",
-      inviterEmail: user.email || "",
-      caseTitle: caseData.claim_type?.replace("_", " ") || "Financial Dispute Case",
-      invitationToken,
-      role: role || "helper",
-    }))
+const html = await render(
+InvitationEmail({
+inviterName: profile?.full_name || user.email || "A user",
+inviterEmail: user.email || "",
+caseTitle: caseData.claim_type?.replace("_", " ") || "Financial Dispute Case",
+invitationToken,
+role: role || "helper",
+})
+)
 
     // Send invitation email
     await sendMail({

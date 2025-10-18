@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const html = render(WelcomeEmail({ userName, userEmail, hasRouterSession }))
+    const html = await render(WelcomeEmail({ userName, userEmail, hasRouterSession }))
     const info = await sendMail({ from: EMAIL_FROM, to: userEmail, subject: "Welcome to GuideBuoy AI - Let's Get Started", html })
     return NextResponse.json({ success: true, messageId: info.messageId })
   } catch (error) {

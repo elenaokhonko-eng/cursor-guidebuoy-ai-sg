@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Add to waitlist
     const displayName = name || [first_name, last_name].filter(Boolean).join(" ") || null
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Send confirmation email to user
     try {
-      const html = render(WaitlistConfirmationEmail({ userName: displayName || undefined, userEmail: email, source }))
+      const html = await render(WaitlistConfirmationEmail({ userName: displayName || undefined, userEmail: email, source }))
       await sendMail({ to: email, subject: "You're on the GuideBuoy AI Waitlist!", html, from: EMAIL_FROM })
     } catch (emailError) {
       console.error("[v0] User confirmation email failed:", emailError)
