@@ -1,13 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+
+const referralTrackSchema = z.object({
+  referralCode: z.string().min(1, "referralCode is required"),
+  newUserId: z.string().uuid(),
+})
 
 export async function POST(request: NextRequest) {
   try {
-    const { referralCode, newUserId } = await request.json()
-
-    if (!referralCode || !newUserId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    let parsed
+    try {
+      parsed = referralTrackSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
+
+    const { referralCode, newUserId } = parsed
 
     const supabase = await createClient()
 

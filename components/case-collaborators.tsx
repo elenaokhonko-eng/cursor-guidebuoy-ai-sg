@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Users, Mail, Trash2, Loader2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { useSupabase } from "@/components/providers/supabase-provider"
 
 interface CaseCollaboratorsProps {
   caseId: string
@@ -16,6 +16,7 @@ interface CaseCollaboratorsProps {
 }
 
 export default function CaseCollaborators({ caseId, isOwner, currentUserId }: CaseCollaboratorsProps) {
+  const supabase = useSupabase()
   const [collaborators, setCollaborators] = useState<any[]>([])
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] = useState("helper")
@@ -27,7 +28,6 @@ export default function CaseCollaborators({ caseId, isOwner, currentUserId }: Ca
   }, [caseId])
 
   const fetchCollaborators = async () => {
-    const supabase = createClient()
     const { data, error } = await supabase
       .from("case_collaborators")
       .select("*, profiles(full_name, email)")
@@ -66,8 +66,6 @@ export default function CaseCollaborators({ caseId, isOwner, currentUserId }: Ca
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
     if (!confirm("Are you sure you want to remove this collaborator?")) return
-
-    const supabase = createClient()
     const { error } = await supabase.from("case_collaborators").delete().eq("id", collaboratorId)
 
     if (!error) {

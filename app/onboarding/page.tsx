@@ -48,17 +48,20 @@ export default function OnboardingPage() {
       setUser(currentUser)
 
       // Check if user has a converted router session
-      const { data: routerSession } = await supabase
-        .from("router_sessions")
-        .select("*")
-        .eq("converted_to_user_id", currentUser.id)
-        .order("conversion_date", { ascending: false })
-        .limit(1)
-        .single()
-
-      if (routerSession) {
-        setHasRouterSession(true)
-        setRouterSessionData(routerSession)
+      try {
+        const res = await fetch(`/api/router/session?convertedFor=${encodeURIComponent(currentUser.id)}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        })
+        if (res.ok) {
+          const { session } = (await res.json()) as { session: any }
+          if (session) {
+            setHasRouterSession(true)
+            setRouterSessionData(session)
+          }
+        }
+      } catch (err) {
+        console.error("[v0] Failed to fetch converted router session:", err)
       }
 
       setIsLoading(false)

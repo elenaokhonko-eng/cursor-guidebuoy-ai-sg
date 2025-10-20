@@ -14,11 +14,16 @@ export async function POST(request: NextRequest) {
   const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" })
 
   const signature = request.headers.get("stripe-signature")
-  const body = await request.text()
+  if (!signature) {
+    return new NextResponse("Missing stripe-signature header", { status: 400 })
+  }
+
+  const buf = await request.arrayBuffer()
+  const rawBody = Buffer.from(buf).toString("utf8")
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, signature as string, webhookSecret)
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
   } catch (err) {
     console.error("[payments] webhook signature error:", err)
     return new NextResponse("Invalid signature", { status: 400 })
@@ -80,4 +85,5 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Webhook handler failed", { status: 500 })
   }
 }
+
 

@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+
+const acceptSchema = z.object({
+  invitationToken: z.string().min(1, "invitationToken is required"),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +17,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { invitationToken } = await request.json()
+    let parsed
+    try {
+      parsed = acceptSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { invitationToken } = parsed
 
     // Fetch invitation
     const { data: invitation, error: inviteError } = await supabase
@@ -33,25 +48,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user email matches invitation
-    if (user.email !== invitation.invited_email) {
+    if (!user.email || user.email.toLowerCase() !== String(invitation.invitee_email).toLowerCase()) {
       return NextResponse.json({ error: "Email mismatch" }, { status: 403 })
     }
 
     // Add user as collaborator
-    const role = invitation.invited_role
-    const permissions = {
-      can_view: true,
-      can_edit: role === "helper" || role === "lead_victim",
-      can_invite: role === "lead_victim",
-    }
+    const role = invitation.role
+    const canEdit = role === "helper" || role === "lead_victim"
+    const canInvite = role === "lead_victim"
 
     const { error: collaboratorError } = await supabase.from("case_collaborators").insert({
       case_id: invitation.case_id,
       user_id: user.id,
       role,
-      invited_by: invitation.invited_by,
+      invited_by: invitation.inviter_user_id,
       accepted_at: new Date().toISOString(),
-      permissions,
+      can_view: true,
+      can_edit: canEdit,
+      can_invite: canInvite,
       status: "active",
     })
 
@@ -85,8 +99,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Increment referral count if this was a referral
-    if (invitation.invited_by) {
-      await supabase.rpc("increment_referral_count", { user_id: invitation.invited_by })
+    if (invitation.inviter_user_id) {
+      await supabase.rpc("increment_referral_count", { user_id: invitation.inviter_user_id })
     }
 
     return NextResponse.json({ success: true, caseId: invitation.case_id })

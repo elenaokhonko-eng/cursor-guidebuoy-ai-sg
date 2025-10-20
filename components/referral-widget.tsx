@@ -12,6 +12,7 @@ export function ReferralWidget() {
   const [referralCount, setReferralCount] = useState(0)
   const [copied, setCopied] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [canShare, setCanShare] = useState(false)
 
   useEffect(() => {
     const fetchReferralData = async () => {
@@ -31,9 +32,11 @@ export function ReferralWidget() {
     }
 
     fetchReferralData()
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function")
   }, [])
 
-  const referralUrl = referralCode ? `${window.location.origin}/auth/sign-up?ref=${referralCode}` : ""
+  const referralUrl =
+    referralCode && typeof window !== "undefined" ? `${window.location.origin}/auth/sign-up?ref=${referralCode}` : ""
 
   const handleCopy = () => {
     if (referralUrl) {
@@ -44,7 +47,7 @@ export function ReferralWidget() {
   }
 
   const handleShare = async () => {
-    if (navigator.share && referralUrl) {
+    if (canShare && referralUrl) {
       try {
         await navigator.share({
           title: "Join GuideBuoy AI",
@@ -83,7 +86,7 @@ export function ReferralWidget() {
             <Button onClick={handleCopy} variant="outline" size="icon" className="flex-shrink-0 bg-transparent">
               {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             </Button>
-            {navigator.share && (
+            {canShare && (
               <Button onClick={handleShare} variant="outline" size="icon" className="flex-shrink-0 bg-transparent">
                 <Share2 className="h-4 w-4" />
               </Button>

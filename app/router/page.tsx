@@ -67,7 +67,6 @@ export default function RouterPage() {
         setMediaRecorder(recorder)
         setAudioChunks(chunks)
         setIsRecording(true)
-        console.log("[v0] Started recording")
       } catch (error) {
         console.error("[v0] Error accessing microphone:", error)
         alert("Unable to access microphone. Please check your permissions.")
@@ -78,7 +77,6 @@ export default function RouterPage() {
         mediaRecorder?.stop()
       } finally {
         setIsRecording(false)
-        console.log("[v0] Stopped recording")
       }
     }
   }

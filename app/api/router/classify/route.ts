@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
-import { createClient } from "@/lib/supabase/server"
+import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
+import { createServiceClient } from "@/lib/supabase/service"
 
 function sanitizeText(input: string): string {
   if (!input) return input
@@ -13,15 +14,28 @@ function sanitizeText(input: string): string {
   return out
 }
 
+const classifyRequestSchema = z.object({
+  session_token: z.string().min(1, "session_token is required"),
+  narrative: z.string().min(1, "narrative is required").max(20_000, "narrative is too long"),
+})
+
 export async function POST(request: NextRequest) {
   try {
-    const rl = rateLimit(keyFrom(request as any, "/api/router/classify"), 20, 60_000)
+    const rl = rateLimit(keyFrom(request, "/api/router/classify"), 20, 60_000)
     if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
-    const { session_token, narrative } = await request.json()
 
-    if (!session_token || !narrative) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    let parsedBody
+    try {
+      parsedBody = classifyRequestSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
+
+    const { session_token: sessionToken, narrative } = parsedBody
+    void sessionToken
 
     // Use AI to classify the dispute
     const { text } = await generateText({
@@ -44,7 +58,13 @@ Return ONLY valid JSON, no other text.`,
       maxOutputTokens: 500,
     })
 
-    const classification = JSON.parse(text)
+    let classification
+    try {
+      classification = JSON.parse(text)
+    } catch (err) {
+      console.error("[v0] Classification JSON parse error:", err, text)
+      return NextResponse.json({ error: "Unable to parse classification result" }, { status: 502 })
+    }
 
     // Anonymization pass (basic): remove obvious emails/phones/account numbers before any persistence
     const anonymizedNarrative = (narrative as string)
@@ -53,14 +73,17 @@ Return ONLY valid JSON, no other text.`,
       .replace(/\b\d{12,19}\b/g, "[redacted_number]")
 
     // Store anonymized record only; do not store raw narrative
-    const supabase = await createClient()
-    await supabase.from("anonymized_training_data").insert({
+    const supabase = createServiceClient()
+    const { error: insertError } = await supabase.from("anonymized_training_data").insert({
       original_case_id: null,
       anonymized_narrative: anonymizedNarrative,
       dispute_category: classification.category ?? null,
       outcome_type: null,
       anonymization_method: "regex_v1",
     })
+    if (insertError) {
+      console.error("[v0] Failed to persist anonymized training data:", insertError)
+    }
 
     return NextResponse.json(classification)
   } catch (error) {
