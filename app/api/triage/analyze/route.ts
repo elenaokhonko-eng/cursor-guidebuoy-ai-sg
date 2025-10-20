@@ -1,13 +1,36 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { z } from "zod"
+import { rateLimit, keyFrom } from "@/lib/rate-limit"
+
+const analyzeSchema = z.object({
+  session_token: z.string().min(1, "session_token is required"),
+  narrative: z.string().min(1, "narrative must not be empty").max(20_000).optional(),
+  classification: z.record(z.any(), z.any()).optional(),
+  responses: z.record(z.any(), z.any()).optional(),
+})
 
 // Compatibility endpoint that orchestrates classify -> questions -> assess
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { session_token, narrative, classification, responses } = body
+    const rl = rateLimit(keyFrom(request, "/api/triage/analyze"), 30, 60_000)
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+    }
 
-    if (!session_token) {
-      return NextResponse.json({ error: "Missing session_token" }, { status: 400 })
+    let parsed
+    try {
+      parsed = analyzeSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { session_token, narrative, classification, responses } = parsed
+
+    if (!classification && !narrative) {
+      return NextResponse.json({ error: "Provide narrative or classification data" }, { status: 400 })
     }
 
     // If no classification and we have narrative, classify first
@@ -52,4 +75,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 })
   }
 }
-

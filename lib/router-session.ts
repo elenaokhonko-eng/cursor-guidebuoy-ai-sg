@@ -37,86 +37,95 @@ export function clearSessionToken(): void {
 }
 
 export async function createRouterSession(): Promise<RouterSession | null> {
-  const supabase = createClient()
-  const sessionToken = generateSessionToken()
-
-  const { data, error } = await supabase
-    .from("router_sessions")
-    .insert({
-      session_token: sessionToken,
-      ip_address: null, // Will be set by server
-      user_agent: typeof window !== "undefined" ? navigator.userAgent : null,
+  try {
+    const res = await fetch("/api/router/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     })
-    .select()
-    .single()
-
-  if (error) {
+    if (!res.ok) {
+      const text = await res.text()
+      console.error("[v0] Error creating router session:", res.status, text)
+      return null
+    }
+    const { session } = (await res.json()) as { session: RouterSession }
+    setSessionToken(session.session_token)
+    return session
+  } catch (error) {
     console.error("[v0] Error creating router session:", error)
     return null
   }
-
-  setSessionToken(sessionToken)
-  return data
 }
 
 export async function getRouterSession(sessionToken: string): Promise<RouterSession | null> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase.from("router_sessions").select("*").eq("session_token", sessionToken).single()
-
-  if (error) {
+  try {
+    const res = await fetch(`/api/router/session?token=${encodeURIComponent(sessionToken)}`, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+    })
+    if (!res.ok) {
+      if (res.status !== 404) {
+        const text = await res.text()
+        console.error("[v0] Error fetching router session:", res.status, text)
+      }
+      return null
+    }
+    const { session } = (await res.json()) as { session: RouterSession }
+    return session
+  } catch (error) {
     console.error("[v0] Error fetching router session:", error)
     return null
   }
-
-  return data
 }
 
 export async function updateRouterSession(
   sessionToken: string,
   updates: Partial<RouterSession>,
 ): Promise<RouterSession | null> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("router_sessions")
-    .update(updates)
-    .eq("session_token", sessionToken)
-    .select()
-    .single()
-
-  if (error) {
+  try {
+    const res = await fetch("/api/router/session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ session_token: sessionToken, updates }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      console.error("[v0] Error updating router session:", res.status, text)
+      return null
+    }
+    const { session } = (await res.json()) as { session: RouterSession }
+    return session
+  } catch (error) {
     console.error("[v0] Error updating router session:", error)
     return null
   }
-
-  return data
 }
 
 export async function convertRouterSessionToUser(
   sessionToken: string,
   userId: string,
 ): Promise<{ success: boolean; sessionData?: RouterSession }> {
-  const supabase = createClient()
-
   try {
-    // Update router session with user conversion
-    const { data, error } = await supabase
-      .from("router_sessions")
-      .update({
-        converted_to_user_id: userId,
-        conversion_date: new Date().toISOString(),
-      })
-      .eq("session_token", sessionToken)
-      .select()
-      .single()
+    const res = await fetch("/api/router/session", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        session_token: sessionToken,
+        updates: {
+          converted_to_user_id: userId,
+          conversion_date: new Date().toISOString(),
+        },
+      }),
+    })
 
-    if (error) {
-      console.error("[v0] Error converting router session:", error)
+    if (!res.ok) {
+      const text = await res.text()
+      console.error("[v0] Error converting router session:", res.status, text)
       return { success: false }
     }
 
-    // Track conversion event
+    const { session: data } = (await res.json()) as { session: RouterSession }
+
+    const supabase = createClient()
     await supabase.from("analytics_events").insert({
       event_name: "router_conversion_complete",
       user_id: userId,

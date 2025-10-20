@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
+import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
 
 function scrub(obj: any): any {
@@ -15,17 +16,30 @@ function scrub(obj: any): any {
   }
 }
 
+const assessSchema = z.object({
+  session_token: z.string().min(1, "session_token is required"),
+  classification: z.record(z.any(), z.any()),
+  responses: z.record(z.any(), z.any()),
+})
+
 export async function POST(request: NextRequest) {
   try {
-    const rl = rateLimit(keyFrom(request as any, "/api/router/assess"), 20, 60_000)
+    const rl = rateLimit(keyFrom(request, "/api/router/assess"), 20, 60_000)
     if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
-    const { session_token, classification, responses } = await request.json()
 
-    if (!session_token || !classification || !responses) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    let parsed
+    try {
+      parsed = assessSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
-    // Use AI to assess eligibility and recommend path
+    const { session_token: sessionToken, classification, responses } = parsed
+    void sessionToken
+
     const { text } = await generateText({
       model: "openai/gpt-4o-mini",
       prompt: `You are an expert in Singapore FIDReC (Financial Industry Disputes Resolution Centre) eligibility criteria.
@@ -33,7 +47,7 @@ export async function POST(request: NextRequest) {
 FIDReC Eligibility Requirements:
 1. Must be an individual consumer (not business)
 2. Dispute must be with a Singapore financial institution (FIDReC member)
-3. Claim amount must be ≤ SGD 150,000
+3. Claim amount must be <= SGD 150,000
 4. Incident must have occurred within last 6 years
 5. Must have first complained to the institution
 6. Institution must have rejected or not resolved within 30 days
@@ -55,7 +69,7 @@ Assess eligibility and provide:
 8. success_probability: "high" | "medium" | "low"
 
 Path Selection Logic:
-- "fidrec_eligible": Meets all criteria, strong case (score ≥ 70)
+- "fidrec_eligible": Meets all criteria, strong case (score >= 70)
 - "waitlist": Meets criteria but needs professional help (score 40-69)
 - "self_service": Doesn't meet FIDReC criteria but can self-resolve
 - "not_eligible": Cannot proceed with dispute
@@ -64,7 +78,13 @@ Return ONLY valid JSON, no other text.`,
       maxOutputTokens: 1000,
     })
 
-    const assessment = JSON.parse(text)
+    let assessment
+    try {
+      assessment = JSON.parse(text)
+    } catch (err) {
+      console.error("[v0] Assessment JSON parse error:", err, text)
+      return NextResponse.json({ error: "Unable to parse assessment result" }, { status: 502 })
+    }
 
     return NextResponse.json(assessment)
   } catch (error) {

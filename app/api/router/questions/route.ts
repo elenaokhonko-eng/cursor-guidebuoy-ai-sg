@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
+import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
 
 function scrub(obj: any): any {
@@ -15,15 +16,28 @@ function scrub(obj: any): any {
   }
 }
 
+const questionRequestSchema = z.object({
+  session_token: z.string().min(1, "session_token is required"),
+  classification: z.record(z.any(), z.any()),
+})
+
 export async function POST(request: NextRequest) {
   try {
-    const rl = rateLimit(keyFrom(request as any, "/api/router/questions"), 20, 60_000)
+    const rl = rateLimit(keyFrom(request, "/api/router/questions"), 20, 60_000)
     if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
-    const { session_token, classification } = await request.json()
 
-    if (!session_token || !classification) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    let parsed
+    try {
+      parsed = questionRequestSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
+
+    const { session_token: sessionToken, classification } = parsed
+    void sessionToken
 
     // Generate personalized questions based on classification
     const { text } = await generateText({
@@ -55,7 +69,13 @@ Return ONLY valid JSON, no other text.`,
       maxOutputTokens: 1000,
     })
 
-    const data = JSON.parse(text)
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch (err) {
+      console.error("[v0] Questions JSON parse error:", err, text)
+      return NextResponse.json({ error: "Unable to parse generated questions" }, { status: 502 })
+    }
 
     return NextResponse.json(data)
   } catch (error) {

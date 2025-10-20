@@ -7,7 +7,9 @@ export interface CaseCollaborator {
   case_id: string
   user_id: string
   role: CaseRole
-  permissions: { can_view?: boolean; can_edit?: boolean; can_invite?: boolean }
+  can_view: boolean
+  can_edit: boolean
+  can_invite: boolean
   invited_by: string | null
   invited_at: string | null
   accepted_at: string | null
@@ -36,21 +38,20 @@ export async function getCaseWithRole(caseId: string, userId: string) {
 
   const { data: collaborator } = await supabase
     .from("case_collaborators")
-    .select("*")
+    .select("role, can_view, can_edit, can_invite")
     .eq("case_id", caseId)
     .eq("user_id", userId)
     .eq("status", "active")
     .single()
 
   if (collaborator) {
-    const permsObj = (collaborator as any).permissions || {}
     const permissions: string[] = []
-    if (permsObj.can_view) permissions.push("read")
-    if (permsObj.can_edit) permissions.push("write")
-    if (permsObj.can_invite) permissions.push("invite")
+    if (collaborator.can_view) permissions.push("read")
+    if (collaborator.can_edit) permissions.push("write")
+    if (collaborator.can_invite) permissions.push("invite")
     return {
       case: caseData,
-      role: (collaborator as any).role as CaseRole,
+      role: collaborator.role as CaseRole,
       permissions,
       isOwner: false,
     }
@@ -66,9 +67,9 @@ export async function inviteCollaborator(caseId: string, inviterUserId: string, 
     .from("invitations")
     .insert({
       case_id: caseId,
-      invited_by: inviterUserId,
-      invited_email: inviteeEmail,
-      invited_role: role,
+      inviter_user_id: inviterUserId,
+      invitee_email: inviteeEmail,
+      role,
       status: "pending",
     })
     .select()

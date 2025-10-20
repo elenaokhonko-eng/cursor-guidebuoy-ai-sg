@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
+import { SupabaseProvider } from "@/components/providers/supabase-provider"
 
 export const metadata: Metadata = {
   title: "GuideBuoy AI - Your Financial Dispute Guide",
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${inter.variable}`}>
-        <Suspense fallback={null}>{children}</Suspense>
+        <SupabaseProvider>
+          <Suspense fallback={null}>{children}</Suspense>
+        </SupabaseProvider>
         <Analytics />
       </body>
     </html>

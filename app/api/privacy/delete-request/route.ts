@@ -21,19 +21,8 @@ export async function POST(request: NextRequest) {
 
     // Delete evidence files + rows for each case (storage objects are named by file_path)
     if (caseIds.length > 0) {
-      const { data: evidenceRows } = await supabase.from("evidence").select("id,file_path").in("case_id", caseIds)
-      if (evidenceRows && evidenceRows.length > 0) {
-        // Remove from storage bucket
-        const paths = evidenceRows.map((e: any) => e.file_path)
-        await (await import("@/lib/supabase/server")) // local import to reuse client? Use storage via service key usually; anon can delete own only under RLS; here we assume users deleting own evidence
-        // We cannot get server storage client directly; fall back to deleting DB rows; storage policies may prevent server removal in this environment.
-        ;
-        // Delete evidence rows
-        await supabase.from("evidence").delete().in("id", evidenceRows.map((e: any) => e.id))
-      }
+      await supabase.from("evidence").delete().in("case_id", caseIds)
 
-      // Scrub case_responses
-      await supabase.rpc("", {}) // placeholder no-op if RPC not available
       await supabase
         .from("case_responses")
         .update({ response_value: "[deleted]" })
@@ -65,4 +54,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to process delete request" }, { status: 500 })
   }
 }
-

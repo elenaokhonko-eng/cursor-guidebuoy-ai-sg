@@ -1,11 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server"
 import Stripe from "stripe"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+
+const checkoutSchema = z.object({
+  caseId: z.string().uuid(),
+})
 
 export async function POST(request: NextRequest) {
   try {
-    const { caseId } = await request.json()
-    if (!caseId) return NextResponse.json({ error: "Missing caseId" }, { status: 400 })
+    let parsed
+    try {
+      parsed = checkoutSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { caseId } = parsed
 
     const supabase = await createClient()
     const {
@@ -25,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     const stripeSecret = process.env.STRIPE_SECRET_KEY
     const priceId = process.env.STRIPE_PRICE_ID_SGD_99
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "http://localhost:3000"
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
     if (!stripeSecret || !priceId) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 500 })
     }
@@ -71,4 +85,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 })
   }
 }
+
 

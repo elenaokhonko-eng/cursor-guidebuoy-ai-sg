@@ -1,13 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { EMAIL_FROM } from "@/lib/email-config"
 import { InvitationEmail } from "@/lib/email-templates"
 import { sendMail } from "@/lib/mail"
 import { render } from "@react-email/render"
 import { nanoid } from "nanoid"
+import { rateLimit, keyFrom } from "@/lib/rate-limit"
+
+const invitationRoles = ["victim", "helper", "lead_victim", "defendant"] as const
+
+const invitationSchema = z.object({
+  caseId: z.string().uuid(),
+  email: z.string().email(),
+  role: z.enum(invitationRoles).optional(),
+})
 
 export async function POST(request: NextRequest) {
   try {
+    const rl = rateLimit(keyFrom(request, "/api/invitations/send"), 10, 60_000)
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -17,7 +32,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { caseId, email, role } = await request.json()
+    let parsed
+    try {
+      parsed = invitationSchema.parse(await request.json())
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: "Invalid request body", details: err.flatten() }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { caseId, email, role } = parsed
 
     // Verify user owns or has access to the case
     const { data: caseData, error: caseError } = await supabase
@@ -37,14 +62,12 @@ export async function POST(request: NextRequest) {
     if (!isOwner) {
       const { data: collab } = await supabase
         .from("case_collaborators")
-        .select("permissions")
+        .select("can_invite")
         .eq("case_id", caseId)
         .eq("user_id", user.id)
         .eq("status", "active")
         .single()
-      if (collab?.permissions && typeof collab.permissions === "object") {
-        isCollaboratorWhoCanInvite = Boolean((collab as any).permissions.can_invite)
-      }
+      isCollaboratorWhoCanInvite = Boolean(collab?.can_invite)
     }
 
     if (!isOwner && !isCollaboratorWhoCanInvite) {
@@ -56,7 +79,7 @@ export async function POST(request: NextRequest) {
       .from("invitations")
       .select("*")
       .eq("case_id", caseId)
-      .eq("invited_email", email)
+      .eq("invitee_email", email)
       .eq("status", "pending")
       .single()
 
@@ -73,9 +96,9 @@ export async function POST(request: NextRequest) {
       .from("invitations")
       .insert({
         case_id: caseId,
-        invited_by: user.id,
-        invited_email: email,
-        invited_role: role || "helper",
+        inviter_user_id: user.id,
+        invitee_email: email,
+        role: role || "helper",
         invitation_token: invitationToken,
         expires_at: expiresAt.toISOString(),
         status: "pending",
@@ -90,15 +113,13 @@ export async function POST(request: NextRequest) {
     // Get user profile for email
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single()
 
-const html = await render(
-InvitationEmail({
-inviterName: profile?.full_name || user.email || "A user",
-inviterEmail: user.email || "",
-caseTitle: caseData.claim_type?.replace("_", " ") || "Financial Dispute Case",
-invitationToken,
-role: role || "helper",
-})
-)
+    const html = await render(InvitationEmail({
+      inviterName: profile?.full_name || user.email || "A user",
+      inviterEmail: user.email || "",
+      caseTitle: caseData.claim_type?.replace("_", " ") || "Financial Dispute Case",
+      invitationToken,
+      role: role || "helper",
+    }))
 
     // Send invitation email
     await sendMail({
