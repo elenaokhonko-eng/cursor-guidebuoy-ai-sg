@@ -42,8 +42,9 @@ export async function POST(request: NextRequest) {
     void sessionToken
 
     const { text } = await generateText({
-      model: google("models/gemini-1.5-flash", {
+      model: google("models/gemini-1.5-flash-001", {
         apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+        apiVersion: "v1beta",
       }),
       prompt: `You are an expert in Singapore FIDReC (Financial Industry Disputes Resolution Centre) eligibility criteria.
 
