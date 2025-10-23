@@ -2,7 +2,7 @@
 
 *Automatically synced with your [v0.app](https://v0.app) deployments*
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/elenaokhonko-1037s-projects/v0-financial-dispute-app)
+[![Deployed on Render](https://img.shields.io/badge/Deployed%20on-Render-blue?style=for-the-badge&logo=render)](https://guidebuoyaisg.onrender.com)
 [![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/projects/nKEJQChfLLw)
 
 ## Overview
@@ -12,7 +12,7 @@ Any changes you make to your deployed app will be automatically pushed to this r
 
 ## Deployment
 
-This app runs on Next.js 14 with Supabase, Stripe, SMTP (Gmail Workspace), and OpenAI. You can deploy to Render as a Web Service.
+This app runs on Next.js 14 with Supabase, Stripe, SMTP (Gmail Workspace), and Google Gemini. Production deployments run on Render as a Web Service.
 
 ### Render setup
 
@@ -22,12 +22,12 @@ This app runs on Next.js 14 with Supabase, Stripe, SMTP (Gmail Workspace), and O
    - Build command: `pnpm install --frozen-lockfile && pnpm build`
    - Start command: `pnpm start`
 3. Environment variables (Render → Environment)
-    - Public (sent to browser):
-      - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-      - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Supabase publishable key (RLS enforced)
-      - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://guidebuoyaisg.onrender.com)
+   - Public (sent to browser):
+     - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+     - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Supabase publishable key (RLS enforced)
+     - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://guidebuoyaisg.onrender.com)
    - Server-only:
-     - `OPENAI_API_KEY`: For server routes calling OpenAI/Whisper
+     - `API_KEY`: Google Gemini API key used by AI routes
      - `STRIPE_SECRET_KEY`: Stripe secret
      - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret (if using webhooks)
      - `STRIPE_PRICE_ID_SGD`: Price ID for the SGD plan (configure per pricing)
@@ -53,8 +53,8 @@ You can run these via Supabase SQL editor or the Supabase CLI. Ensure Row Level 
 
 ### What the Supabase env vars are
 
-  - `NEXT_PUBLIC_SUPABASE_URL`: The base URL of your Supabase project (public).
-  - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Publishable key used by the browser and server with RLS. Keep sensitive operations on the server. Do NOT expose a service role key to the browser.
+- `NEXT_PUBLIC_SUPABASE_URL`: The base URL of your Supabase project (public).
+- `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Publishable key used by the browser and server with RLS. Keep sensitive operations on the server. Do NOT expose a service role key to the browser.
 
 ### Calling external APIs
 
@@ -106,4 +106,5 @@ Continue building your app on:
 1. Create and modify your project using [v0.app](https://v0.app)
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+4. Render deploys the latest version from this repository
+

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
+import { google } from "@ai-sdk/google"
 import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
 
@@ -41,7 +42,9 @@ export async function POST(request: NextRequest) {
 
     // Generate personalized questions based on classification
     const { text } = await generateText({
-      model: "openai/gpt-4o-mini",
+      model: google("models/gemini-1.5-flash-latest", {
+        apiKey: process.env.API_KEY,
+      }),
       prompt: `You are an expert in Singapore financial disputes and FIDReC cases.
 
 Based on this dispute classification:
