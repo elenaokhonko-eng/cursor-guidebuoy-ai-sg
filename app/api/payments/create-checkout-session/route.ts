@@ -38,11 +38,14 @@ export async function POST(request: NextRequest) {
     if (!isOwner) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const stripeSecret = process.env.STRIPE_SECRET_KEY
-    const priceId = process.env.STRIPE_PRICE_ID_SGD_99
+    const priceId = process.env.STRIPE_PRICE_ID_SGD
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
     if (!stripeSecret || !priceId) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 500 })
     }
+    const normalizedAppUrl = appUrl
+      ? appUrl.startsWith("http") ? appUrl : `https://${appUrl}`
+      : "https://guidebuoyaisg.onrender.com"
 
     const stripe = new Stripe(stripeSecret, { apiVersion: "2024-06-20" })
 
@@ -64,8 +67,8 @@ export async function POST(request: NextRequest) {
       mode: "payment",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/app/case/${caseId}/dashboard?checkout=success`,
-      cancel_url: `${appUrl}/app/case/${caseId}/dashboard?checkout=cancel`,
+      success_url: `${normalizedAppUrl}/app/case/${caseId}/dashboard?checkout=success`,
+      cancel_url: `${normalizedAppUrl}/app/case/${caseId}/dashboard?checkout=cancel`,
       metadata: {
         case_id: caseId,
         user_id: user.id,
@@ -85,5 +88,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 })
   }
 }
-
-

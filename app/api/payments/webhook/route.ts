@@ -85,5 +85,3 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Webhook handler failed", { status: 500 })
   }
 }
-
-

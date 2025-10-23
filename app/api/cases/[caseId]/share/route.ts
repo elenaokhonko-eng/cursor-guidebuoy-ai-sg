@@ -89,7 +89,10 @@ export async function POST(request: NextRequest, { params }: { params: { caseId:
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
-    const shareLink = `${appUrl}/invite/${invitation_token}`
+    const normalizedAppUrl = appUrl
+      ? appUrl.startsWith("http") ? appUrl : `https://${appUrl}`
+      : "https://guidebuoyaisg.onrender.com"
+    const shareLink = `${normalizedAppUrl}/invite/${invitation_token}`
 
     return NextResponse.json({ success: true, message: "Invitation created", shareLink })
   } catch (error) {

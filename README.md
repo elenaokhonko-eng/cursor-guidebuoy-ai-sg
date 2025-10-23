@@ -22,15 +22,15 @@ This app runs on Next.js 14 with Supabase, Stripe, SMTP (Gmail Workspace), and O
    - Build command: `pnpm install --frozen-lockfile && pnpm build`
    - Start command: `pnpm start`
 3. Environment variables (Render → Environment)
-   - Public (sent to browser, prefixed with `NEXT_PUBLIC_`):
-     - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon key (RLS enforced)
-     - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://your-app.onrender.com)
+    - Public (sent to browser):
+      - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+      - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Supabase publishable key (RLS enforced)
+      - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://guidebuoyaisg.onrender.com)
    - Server-only:
      - `OPENAI_API_KEY`: For server routes calling OpenAI/Whisper
      - `STRIPE_SECRET_KEY`: Stripe secret
      - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret (if using webhooks)
-     - `STRIPE_PRICE_ID_SGD_99`: Price ID for the SGD 99 plan
+     - `STRIPE_PRICE_ID_SGD`: Price ID for the SGD plan (configure per pricing)
      - `SMTP_HOST`: e.g., `smtp.guidebuoyai.sg`
      - `SMTP_PORT`: e.g., `465`
      - `SMTP_SECURE`: `true` for 465 (SMTPS) or `false` for 587 (STARTTLS)
@@ -53,8 +53,8 @@ You can run these via Supabase SQL editor or the Supabase CLI. Ensure Row Level 
 
 ### What the Supabase env vars are
 
-- `NEXT_PUBLIC_SUPABASE_URL`: The base URL of your Supabase project (public).
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anon key used by the browser and server with RLS. Keep sensitive operations on the server. Do NOT expose a service role key to the browser.
+  - `NEXT_PUBLIC_SUPABASE_URL`: The base URL of your Supabase project (public).
+  - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Publishable key used by the browser and server with RLS. Keep sensitive operations on the server. Do NOT expose a service role key to the browser.
 
 ### Calling external APIs
 

@@ -1,4 +1,4 @@
-﻿# Financial dispute app
+# Financial dispute app
 
 *Automatically synced with your [v0.app](https://v0.app) deployments*
 
@@ -12,26 +12,33 @@ Any changes you make to your deployed app will be automatically pushed to this r
 
 ## Deployment
 
-This app runs on Next.js 14 with Supabase, Stripe, Resend, and OpenAI. You can deploy to Render as a Web Service.
+This app runs on Next.js 14 with Supabase, Stripe, SMTP (Gmail Workspace), and OpenAI. You can deploy to Render as a Web Service.
 
 ### Render setup
 
 1. Create a new Web Service from your GitHub repo.
 2. Environment
-   - Runtime: Node 20.x
+   - Runtime: Node 18.x or 22.x
    - Build command: `pnpm install --frozen-lockfile && pnpm build`
    - Start command: `pnpm start`
-3. Environment variables (Render âžœ Environment)
-   - Public (sent to browser, prefixed with `NEXT_PUBLIC_`):
-     - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon key (RLS enforced)
-     - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://your-app.onrender.com)
+3. Environment variables (Render ? Environment)
+    - Public (sent to browser):
+      - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+      - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Supabase publishable key (RLS enforced)
+      - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://guidebuoyaisg.onrender.com)
    - Server-only:
      - `OPENAI_API_KEY`: For server routes calling OpenAI/Whisper
-     - `RESEND_API_KEY`: For transactional emails
      - `STRIPE_SECRET_KEY`: Stripe secret
      - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret (if using webhooks)
-     - `STRIPE_PRICE_ID_SGD_99`: Price ID for the SGD 99 plan
+     - `STRIPE_PRICE_ID_SGD`: Price ID for the SGD plan (configure per pricing)
+     - `SMTP_HOST`: e.g., `smtp.guidebuoyai.sg`
+     - `SMTP_PORT`: e.g., `465`
+     - `SMTP_SECURE`: `true` for 465 (SMTPS) or `false` for 587 (STARTTLS)
+     - `SMTP_USER`: e.g., `info@guidebuoyai.sg`
+     - `SMTP_PASS`: mailbox/app password
+     - `EMAIL_FROM`: e.g., `GuideBuoy AI <info@guidebuoyai.sg>`
+     - `EMAIL_FROM_NAME`: e.g., `GuideBuoy AI`
+     - `ADMIN_EMAIL`: e.g., `elena.okhonko@guidebuoyai.sg`
 
 Note: Render provides the `PORT` env var automatically; `next start` will bind to it.
 
@@ -46,14 +53,14 @@ You can run these via Supabase SQL editor or the Supabase CLI. Ensure Row Level 
 
 ### What the Supabase env vars are
 
-- `NEXT_PUBLIC_SUPABASE_URL`: The base URL of your Supabase project (public).
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anon key used by the browser and server with RLS. Keep sensitive operations on the server. Do NOT expose a service role key to the browser.
+  - `NEXT_PUBLIC_SUPABASE_URL`: The base URL of your Supabase project (public).
+  - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Publishable key used by the browser and server with RLS. Keep sensitive operations on the server. Do NOT expose a service role key to the browser.
 
 ### Calling external APIs
 
 - Supabase: Use the browser client for user-scoped reads/writes (RLS protects data), and the server client in route handlers for trusted operations.
 - OpenAI (LLM/Whisper): Call from server routes only; the client calls your API route.
-- Stripe/Resend: Server-only with the secrets above.
+- Stripe/SMTP (Gmail Workspace): Server-only with the secrets above.
 
 ### Rate limiting (production)
 
@@ -100,3 +107,4 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
