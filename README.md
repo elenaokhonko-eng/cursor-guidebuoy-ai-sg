@@ -27,7 +27,7 @@ This app runs on Next.js 14 with Supabase, Stripe, SMTP (Gmail Workspace), and G
      - `NEXT_PUBLIC_SP_PUBLISHABLE_KEY`: Supabase publishable key (RLS enforced)
      - `NEXT_PUBLIC_APP_URL`: Public base URL of your app (e.g. https://guidebuoyaisg.onrender.com)
    - Server-only:
-     - `API_KEY`: Google Gemini API key used by AI routes
+     - `GOOGLE_GENERATIVE_AI_API_KEY`: Google Gemini API key used by AI routes
      - `STRIPE_SECRET_KEY`: Stripe secret
      - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret (if using webhooks)
      - `STRIPE_PRICE_ID_SGD`: Price ID for the SGD plan (configure per pricing)

@@ -14,33 +14,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No audio file provided" }, { status: 400 })
     }
 
-    const apiKey = process.env.API_KEY
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
     if (!apiKey) {
-      return NextResponse.json({ error: "Missing API_KEY" }, { status: 500 })
+      return NextResponse.json({ error: "Missing GOOGLE_GENERATIVE_AI_API_KEY" }, { status: 500 })
     }
 
-    const openAiForm = new FormData()
-    // OpenAI expects field name 'file' and 'model'
-    openAiForm.append("file", audioFile, (audioFile as any).name || "audio.webm")
-    openAiForm.append("model", "whisper-1")
-    // You can optionally set 'language' or 'prompt' to bias transcription
+    const arrayBuffer = await audioFile.arrayBuffer()
+    const base64Audio = Buffer.from(arrayBuffer).toString("base64")
+    const mimeType = audioFile.type || "audio/webm"
 
-    const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: "Transcribe the following audio." },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Audio,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
       },
-      body: openAiForm,
-    })
+    )
 
-    if (!resp.ok) {
-      const errText = await resp.text()
-      console.error("[v0] Whisper API error:", resp.status, errText)
+    if (!geminiResponse.ok) {
+      const errText = await geminiResponse.text()
+      console.error("[v0] Gemini transcription error:", geminiResponse.status, errText)
       return NextResponse.json({ error: "Transcription provider error" }, { status: 502 })
     }
 
-    const data = await resp.json() as { text?: string }
-    const transcription = data.text || ""
+    const result = (await geminiResponse.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    }
+
+    const transcription =
+      result.candidates?.[0]?.content?.parts?.find((part) => part.text)?.text?.trim() ?? ""
+
+    if (!transcription) {
+      return NextResponse.json({ error: "Transcription unavailable" }, { status: 502 })
+    }
 
     return NextResponse.json({ transcription, success: true })
   } catch (error) {
