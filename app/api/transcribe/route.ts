@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google-ai/generativelanguage"
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai"
 
 const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY
 if (!API_KEY) {
@@ -14,7 +14,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 export async function POST(req: NextRequest) {
-  console.log("Transcription request received (using @google-ai/generativelanguage)")
+  console.log("Transcription request received (using @google/generative-ai)")
   try {
     const formData = await req.formData()
     const file = formData.get("audio") as File | null

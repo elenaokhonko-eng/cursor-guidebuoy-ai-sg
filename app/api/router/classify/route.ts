@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google-ai/generativelanguage"
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai"
 import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
 import { createServiceClient } from "@/lib/supabase/service"
