@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Use AI to classify the dispute
     const { text } = await generateText({
-      model: google("models/gemini-1.5-flash-latest", {
+      model: google("models/gemini-1.5-flash", {
         apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       }),
       prompt: `You are an expert in Singapore financial disputes and FIDReC (Financial Industry Disputes Resolution Centre) cases.
