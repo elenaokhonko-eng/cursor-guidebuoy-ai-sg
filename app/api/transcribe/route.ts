@@ -1,72 +1,71 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { rateLimit, keyFrom } from "@/lib/rate-limit"
+import { NextRequest, NextResponse } from "next/server"
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google-ai/generativelanguage"
 
-export async function POST(request: NextRequest) {
+const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+if (!API_KEY) {
+  throw new Error("GOOGLE_GENERATIVE_AI_API_KEY environment variable not set.")
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY)
+const modelName = "gemini-1.5-flash-latest"
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  return Buffer.from(buffer).toString("base64")
+}
+
+export async function POST(req: NextRequest) {
+  console.log("Transcription request received (using @google-ai/generativelanguage)")
   try {
-    const key = keyFrom(request as any, "/api/transcribe")
-    const rl = rateLimit(key, 10, 60_000)
-    if (!rl.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+    const formData = await req.formData()
+    const file = formData.get("audio") as File | null
 
-    const formData = await request.formData()
-    const audioFile = formData.get("audio") as File | null
-
-    if (!audioFile) {
-      return NextResponse.json({ error: "No audio file provided" }, { status: 400 })
+    if (!file) {
+      console.error("No audio file found in form data")
+      return NextResponse.json({ error: "No audio file uploaded" }, { status: 400 })
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: "Missing GOOGLE_GENERATIVE_AI_API_KEY" }, { status: 500 })
-    }
+    console.log(`Received file: ${file.name}, size: ${file.size}, type: ${file.type}`)
 
-    const arrayBuffer = await audioFile.arrayBuffer()
-    const base64Audio = Buffer.from(arrayBuffer).toString("base64")
-    const mimeType = audioFile.type || "audio/webm"
+    const audioBuffer = await file.arrayBuffer()
+    const audioBase64 = arrayBufferToBase64(audioBuffer)
 
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: "Transcribe the following audio." },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Audio,
-                  },
-                },
-              ],
-            },
-          ],
-        }),
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+      ],
+    })
+
+    const audioPart = {
+      inlineData: {
+        mimeType: file.type || "audio/webm",
+        data: audioBase64,
       },
-    )
-
-    if (!geminiResponse.ok) {
-      const errText = await geminiResponse.text()
-      console.error("[v0] Gemini transcription error:", geminiResponse.status, errText)
-      return NextResponse.json({ error: "Transcription provider error" }, { status: 502 })
     }
 
-    const result = (await geminiResponse.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
-    }
+    const textPart = { text: "Transcribe the following audio recording:" }
 
-    const transcription =
-      result.candidates?.[0]?.content?.parts?.find((part) => part.text)?.text?.trim() ?? ""
+    console.log(`Calling Gemini (${modelName}) for transcription via Google SDK...`)
+
+    const result = await model.generateContent([textPart, audioPart])
+    const response = result.response
+    const transcription = response.text()
 
     if (!transcription) {
-      return NextResponse.json({ error: "Transcription unavailable" }, { status: 502 })
+      console.warn("Transcription result from Gemini was empty. Full response:", JSON.stringify(response, null, 2))
+    } else {
+      console.log("Transcription successful via Google SDK.")
     }
 
-    return NextResponse.json({ transcription, success: true })
-  } catch (error) {
-    console.error("[v0] Transcription error:", error)
-    return NextResponse.json({ error: "Transcription failed" }, { status: 500 })
+    return NextResponse.json({ transcription: transcription ?? "" })
+  } catch (error: any) {
+    console.error("[v0] Gemini transcription error (Google SDK):", error)
+    if (error.response?.data) {
+      console.error("Error details:", JSON.stringify(error.response.data, null, 2))
+    }
+    return NextResponse.json({ error: error.message || "Failed to transcribe audio" }, { status: 500 })
   }
 }

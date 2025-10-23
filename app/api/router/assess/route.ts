@@ -1,8 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateText } from "ai"
-import { google } from "@ai-sdk/google"
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google-ai/generativelanguage"
 import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
+
+const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+if (!API_KEY) {
+  throw new Error("GOOGLE_GENERATIVE_AI_API_KEY environment variable not set.")
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY)
+const modelName = "gemini-1.5-flash-latest"
 
 function scrub(obj: any): any {
   try {
@@ -41,11 +48,20 @@ export async function POST(request: NextRequest) {
     const { session_token: sessionToken, classification, responses } = parsed
     void sessionToken
 
-    const { text } = await generateText({
-      model: google("models/gemini-2.5-flash", {
-        apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-      }),
-      prompt: `You are an expert in Singapore FIDReC (Financial Industry Disputes Resolution Centre) eligibility criteria.
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+      ],
+    })
+
+    const prompt = `You are an expert in Singapore FIDReC (Financial Industry Disputes Resolution Centre) eligibility criteria.
 
 FIDReC Eligibility Requirements:
 1. Must be an individual consumer (not business)
@@ -71,27 +87,28 @@ Assess eligibility and provide:
 7. estimated_timeline: String describing expected timeline
 8. success_probability: "high" | "medium" | "low"
 
-Path Selection Logic:
-- "fidrec_eligible": Meets all criteria, strong case (score >= 70)
-- "waitlist": Meets criteria but needs professional help (score 40-69)
-- "self_service": Doesn't meet FIDReC criteria but can self-resolve
-- "not_eligible": Cannot proceed with dispute
+Return ONLY valid JSON, no other text.
 
-Return ONLY valid JSON, no other text.`,
-      maxOutputTokens: 1000,
-    })
+JSON Output:`
+
+    const result = await model.generateContent(prompt)
+    const response = result.response
+    const rawText = response.text()
 
     let assessment
     try {
-      assessment = JSON.parse(text)
+      assessment = JSON.parse(rawText)
     } catch (err) {
-      console.error("[v0] Assessment JSON parse error:", err, text)
+      console.error("[v0] Assessment JSON parse error:", err, rawText)
       return NextResponse.json({ error: "Unable to parse assessment result" }, { status: 502 })
     }
 
     return NextResponse.json(assessment)
   } catch (error) {
     console.error("[v0] Assessment error:", error)
+    if ((error as any).response?.data) {
+      console.error("API Error details:", JSON.stringify((error as any).response.data, null, 2))
+    }
     return NextResponse.json({ error: "Assessment failed" }, { status: 500 })
   }
 }

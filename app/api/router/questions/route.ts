@@ -1,8 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateText } from "ai"
-import { google } from "@ai-sdk/google"
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google-ai/generativelanguage"
 import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
+
+const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+if (!API_KEY) {
+  throw new Error("GOOGLE_GENERATIVE_AI_API_KEY environment variable not set.")
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY)
+const modelName = "gemini-1.5-flash-latest"
 
 function scrub(obj: any): any {
   try {
@@ -40,12 +47,20 @@ export async function POST(request: NextRequest) {
     const { session_token: sessionToken, classification } = parsed
     void sessionToken
 
-    // Generate personalized questions based on classification
-    const { text } = await generateText({
-      model: google("models/gemini-2.5-flash", {
-        apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-      }),
-      prompt: `You are an expert in Singapore financial disputes and FIDReC cases.
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+      ],
+    })
+
+    const prompt = `You are an expert in Singapore financial disputes and FIDReC cases.
 
 Based on this dispute classification:
 ${JSON.stringify(scrub(classification), null, 2)}
@@ -68,21 +83,26 @@ Return a JSON object with a "questions" array. Each question should have:
 - options: array of options (for radio type)
 - required: boolean
 
-Return ONLY valid JSON, no other text.`,
-      maxOutputTokens: 1000,
-    })
+JSON Output:`
+
+    const result = await model.generateContent(prompt)
+    const response = result.response
+    const rawText = response.text()
 
     let data
     try {
-      data = JSON.parse(text)
+      data = JSON.parse(rawText)
     } catch (err) {
-      console.error("[v0] Questions JSON parse error:", err, text)
+      console.error("[v0] Questions JSON parse error:", err, rawText)
       return NextResponse.json({ error: "Unable to parse generated questions" }, { status: 502 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
     console.error("[v0] Questions generation error:", error)
+    if ((error as any).response?.data) {
+      console.error("API Error details:", JSON.stringify((error as any).response.data, null, 2))
+    }
     return NextResponse.json({ error: "Failed to generate questions" }, { status: 500 })
   }
 }
