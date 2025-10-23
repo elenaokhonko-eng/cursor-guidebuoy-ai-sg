@@ -18,7 +18,7 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY)
-const modelName = "gemini-1.5-flash-latest"
+const modelName = "gemini-2.0-flash"
 
 const classifyRequestSchema = z.object({
   session_token: z.string().min(1, "session_token is required"),
@@ -101,7 +101,10 @@ JSON Output:`
     console.log(`Calling Gemini (${modelName}) for classification via Google SDK...`)
     const result = await model.generateContent(userPrompt)
     const response = result.response
-    const rawText = response.text()
+    const rawText =
+      response.text() ??
+      response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
+      ""
 
     console.log("[v0] Raw Gemini Classification Response:", rawText)
 

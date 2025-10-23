@@ -7,7 +7,7 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY)
-const modelName = "gemini-1.5-flash-latest"
+const modelName = "gemini-1.5-flash"
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return Buffer.from(buffer).toString("base64")
@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
 
     const result = await model.generateContent([textPart, audioPart])
     const response = result.response
-    const transcription = response.text()
+    const transcription =
+      response.text() ??
+      response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
+      ""
 
     if (!transcription) {
       console.warn("Transcription result from Gemini was empty. Full response:", JSON.stringify(response, null, 2))
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
       console.log("Transcription successful via Google SDK.")
     }
 
-    return NextResponse.json({ transcription: transcription ?? "" })
+    return NextResponse.json({ transcription })
   } catch (error: any) {
     console.error("[v0] Gemini transcription error (Google SDK):", error)
     if (error.response?.data) {

@@ -9,7 +9,7 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY)
-const modelName = "gemini-1.5-flash-latest"
+const modelName = "gemini-2.0-flash"
 
 function scrub(obj: any): any {
   try {
@@ -87,7 +87,10 @@ JSON Output:`
 
     const result = await model.generateContent(prompt)
     const response = result.response
-    const rawText = response.text()
+    const rawText =
+      response.text() ??
+      response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
+      ""
 
     let data
     try {
