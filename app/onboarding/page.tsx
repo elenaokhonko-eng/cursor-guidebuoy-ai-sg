@@ -26,7 +26,8 @@ export default function OnboardingPage() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(false)
-  const [importCase, setImportCase] = useState(true)
+  const [importCase, setImportCase] = useState(false)
+  const [importedCaseId, setImportedCaseId] = useState<string | null>(null)
 
   const router = useRouter()
   const totalSteps = 4
@@ -52,16 +53,31 @@ export default function OnboardingPage() {
         const res = await fetch(`/api/router/session?convertedFor=${encodeURIComponent(currentUser.id)}`, {
           method: "GET",
           headers: { Accept: "application/json" },
+          credentials: "include",
         })
         if (res.ok) {
           const { session } = (await res.json()) as { session: any }
           if (session) {
             setHasRouterSession(true)
             setRouterSessionData(session)
+            setImportCase(true)
+          } else {
+            setHasRouterSession(false)
+            setImportCase(false)
           }
+        } else if (res.status === 404) {
+          setHasRouterSession(false)
+          setImportCase(false)
+        } else {
+          const body = await res.text()
+          console.error("[v0] Converted session fetch error:", res.status, body)
+          setHasRouterSession(false)
+          setImportCase(false)
         }
       } catch (err) {
         console.error("[v0] Failed to fetch converted router session:", err)
+        setHasRouterSession(false)
+        setImportCase(false)
       }
 
       setIsLoading(false)
@@ -104,7 +120,7 @@ export default function OnboardingPage() {
       const supabase = createClient()
 
       try {
-        const { data: newCase } = await supabase
+        const { data: newCase, error: caseError } = await supabase
           .from("cases")
           .insert({
             user_id: user.id,
@@ -118,6 +134,14 @@ export default function OnboardingPage() {
           .select()
           .single()
 
+        if (caseError) {
+          throw caseError
+        }
+
+        if (newCase?.id) {
+          setImportedCaseId(newCase.id)
+        }
+
         // Track case import
         await supabase.from("analytics_events").insert({
           event_name: "onboarding_case_imported",
@@ -127,9 +151,12 @@ export default function OnboardingPage() {
         })
       } catch (error) {
         console.error("[v0] Error importing case:", error)
+        setImportedCaseId(null)
       } finally {
         setIsSaving(false)
       }
+    } else if (currentStep === 2) {
+      setImportedCaseId(null)
     }
 
     if (currentStep === 3) {
@@ -171,7 +198,8 @@ export default function OnboardingPage() {
         created_at: new Date().toISOString(),
       })
 
-      router.push("/app")
+      const destination = importedCaseId ? `/app/case/${importedCaseId}/dashboard` : "/app"
+      router.push(destination)
     }
   }
 
@@ -268,14 +296,18 @@ export default function OnboardingPage() {
           {/* Step 2: Case Import */}
           {currentStep === 2 && (
             <Card>
-              <CardHeader>
+            <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                     <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <CardTitle>Import Your Case</CardTitle>
-                    <CardDescription>We've saved your dispute assessment</CardDescription>
+                    <CardDescription>
+                      {hasRouterSession
+                        ? "We've saved your dispute assessment."
+                        : "Import your saved assessment once it becomes available."}
+                    </CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -309,6 +341,7 @@ export default function OnboardingPage() {
                       <Checkbox
                         id="importCase"
                         checked={importCase}
+                        disabled={!hasRouterSession}
                         onCheckedChange={(checked) => setImportCase(checked as boolean)}
                       />
                       <Label htmlFor="importCase" className="text-sm leading-relaxed">
