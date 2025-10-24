@@ -112,13 +112,29 @@ export default function SignUpPage() {
 
       // Log PDPA consent
       if (data.user) {
-        await supabase.from("consent_logs").insert({
+        const consentPayload = {
           user_id: data.user.id,
           email,
           consent_purposes: consentPurposes.length > 0 ? consentPurposes : pdpaConsentPurposes,
           policy_version: "1.0",
           consented_at: new Date().toISOString(),
-        })
+        }
+
+        try {
+          const response = await fetch("/api/consent-log", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(consentPayload),
+          })
+
+          if (!response.ok) {
+            console.warn("Consent log API returned non-OK status", await response.json().catch(() => ({})))
+          }
+        } catch (apiError) {
+          console.error("Consent log API error:", apiError)
+        }
 
         await trackEvent("signup_complete", {
           user_id: data.user.id,
