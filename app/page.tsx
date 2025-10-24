@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Mic, MicOff, Loader2, ArrowRight, FileText } from "lucide-react"
 import Link from "next/link"
 import { createRouterSession, getSessionToken, updateRouterSession } from "@/lib/router-session"
+import { useSupabase } from "@/components/providers/supabase-provider"
 
 export default function LandingPage() {
   const [isRecording, setIsRecording] = useState(false)
@@ -18,7 +20,13 @@ export default function LandingPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputMethod, setInputMethod] = useState<"voice" | "text">("text")
+  const [waitlistFirstName, setWaitlistFirstName] = useState("")
+  const [waitlistLastName, setWaitlistLastName] = useState("")
+  const [waitlistEmail, setWaitlistEmail] = useState("")
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false)
   const router = useRouter()
+  const supabase = useSupabase()
 
   useEffect(() => {
     // Initialize or retrieve session
@@ -104,6 +112,57 @@ export default function LandingPage() {
       alert("Something went wrong. Please try again.")
     } finally {
       setIsProcessing(false)
+    }
+  }
+
+  const trackWaitlistEvent = async (eventName: string, eventData: any) => {
+    try {
+      await supabase.from("analytics_events").insert({
+        event_name: eventName,
+        event_data: eventData,
+        page_url: typeof window !== "undefined" ? window.location.href : "",
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+        created_at: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("[waitlist] analytics error:", error)
+    }
+  }
+
+  const handleWaitlistSignup = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!waitlistEmail) return
+
+    setWaitlistSubmitting(true)
+    try {
+      const response = await fetch("/api/waitlist/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: waitlistEmail,
+          first_name: waitlistFirstName,
+          last_name: waitlistLastName,
+          source: "landing_page",
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to join waitlist")
+      }
+
+      await trackWaitlistEvent("waitlist_signup", {
+        email: waitlistEmail,
+        source: "landing_page",
+        timestamp: new Date().toISOString(),
+      })
+
+      setWaitlistSubmitted(true)
+    } catch (error) {
+      console.error("[waitlist] signup error:", error)
+      alert("Failed to join waitlist. Please try again.")
+    } finally {
+      setWaitlistSubmitting(false)
     }
   }
 
@@ -276,6 +335,65 @@ export default function LandingPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Waitlist Section */}
+          <section className="mt-16 rounded-2xl border border-primary/10 bg-primary/5 p-8">
+            <div className="max-w-3xl mx-auto text-center space-y-4">
+              <Badge variant="secondary" className="mx-auto px-4 py-1">
+                Early Access
+              </Badge>
+              <h2 className="text-3xl font-semibold">Join the Waitlist</h2>
+              <p className="text-muted-foreground">
+                GuideBuoy AI is launching soon. Join the waitlist for launch updates and a complimentary first month.
+              </p>
+            </div>
+
+            <div className="mt-8 max-w-2xl mx-auto">
+              {!waitlistSubmitted ? (
+                <form
+                  onSubmit={handleWaitlistSignup}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start"
+                >
+                  <Input
+                    type="text"
+                    placeholder="First name"
+                    value={waitlistFirstName}
+                    onChange={(event) => setWaitlistFirstName(event.target.value)}
+                    required
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Last name"
+                    value={waitlistLastName}
+                    onChange={(event) => setWaitlistLastName(event.target.value)}
+                    required
+                  />
+                  <div className="flex gap-3">
+                    <Input
+                      type="email"
+                      placeholder="Email address"
+                      value={waitlistEmail}
+                      onChange={(event) => setWaitlistEmail(event.target.value)}
+                      required
+                      className="flex-1"
+                    />
+                    <Button type="submit" disabled={waitlistSubmitting} className="whitespace-nowrap">
+                      {waitlistSubmitting ? "Joining..." : "Join"}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <Card className="p-6 bg-accent/20 border-accent max-w-md mx-auto">
+                  <CardContent className="p-0 text-center space-y-2">
+                    <h3 className="font-semibold text-lg">You're on the list!</h3>
+                    <p className="text-sm text-muted-foreground">
+                      We’ll send a welcome email with your free month when we go live.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </section>
 
           {/* Trust Indicators */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
