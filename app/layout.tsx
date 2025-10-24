@@ -1,7 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
 import { SupabaseProvider } from "@/components/providers/supabase-provider"
@@ -26,7 +25,6 @@ export default function RootLayout({
         <SupabaseProvider>
           <Suspense fallback={null}>{children}</Suspense>
         </SupabaseProvider>
-        <Analytics />
       </body>
     </html>
   )
