@@ -95,6 +95,7 @@ export default function OnboardingPage() {
       try {
         await supabase.from("profiles").upsert({
           id: user.id,
+          email: user.email,
           full_name: fullName,
           phone_number: phoneNumber,
           updated_at: new Date().toISOString(),
@@ -167,6 +168,7 @@ export default function OnboardingPage() {
       try {
         await supabase.from("profiles").upsert({
           id: user.id,
+          email: user.email,
           email_notifications: emailNotifications,
           sms_notifications: smsNotifications,
           updated_at: new Date().toISOString(),
