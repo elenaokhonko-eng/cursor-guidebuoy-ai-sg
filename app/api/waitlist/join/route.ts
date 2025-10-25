@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { EMAIL_FROM, ADMIN_EMAIL } from "@/lib/email-config"
 import { sendMail } from "@/lib/mail"
 import { render } from "@react-email/render"
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const { email, name, first_name, last_name } = parsed
     const source = parsed.source ?? "direct"
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Add to waitlist
     const displayName = name || [first_name, last_name].filter(Boolean).join(" ") || null
