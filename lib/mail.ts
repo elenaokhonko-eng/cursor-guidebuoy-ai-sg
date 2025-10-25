@@ -10,15 +10,17 @@ export function getMailer() {
   const user = process.env.SMTP_USER
   const pass = process.env.SMTP_PASS
 
-  if (!host || !user || !pass) {
-    throw new Error('SMTP configuration missing (SMTP_HOST/SMTP_USER/SMTP_PASS)')
+  if (!host) {
+    throw new Error('SMTP configuration missing (SMTP_HOST)')
   }
+
+  const auth = user && pass ? { user, pass } : undefined
 
   transporter = nodemailer.createTransport({
     host,
     port,
     secure,
-    auth: { user, pass },
+    auth,
   })
 
   return transporter
@@ -42,4 +44,3 @@ export async function sendMail({
 
   return await mailer.sendMail({ from: fromHeader, to, subject, html })
 }
-
