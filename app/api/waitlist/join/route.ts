@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const { data: waitlistEntry, error: insertError } = await supabase
       .from("waitlist")
-      .insert(insertPayload)
+      .upsert(insertPayload, { onConflict: "email" })
       .select()
       .single()
 
