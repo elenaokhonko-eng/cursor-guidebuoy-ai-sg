@@ -11,6 +11,7 @@ import { Mic, MicOff, Loader2, ArrowRight, FileText } from "lucide-react"
 import Link from "next/link"
 import { createRouterSession, getSessionToken, updateRouterSession } from "@/lib/router-session"
 import { useSupabase } from "@/components/providers/supabase-provider"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export default function LandingPage() {
   const [isRecording, setIsRecording] = useState(false)
@@ -116,17 +117,12 @@ export default function LandingPage() {
   }
 
   const trackWaitlistEvent = async (eventName: string, eventData: any) => {
-    try {
-      await supabase.from("analytics_events").insert({
-        event_name: eventName,
-        event_data: eventData,
-        page_url: typeof window !== "undefined" ? window.location.href : "",
-        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-        created_at: new Date().toISOString(),
-      })
-    } catch (error) {
-      console.error("[waitlist] analytics error:", error)
-    }
+    await trackClientEvent({
+      eventName,
+      eventData,
+      pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+    })
   }
 
   const handleWaitlistSignup = async (event: React.FormEvent) => {

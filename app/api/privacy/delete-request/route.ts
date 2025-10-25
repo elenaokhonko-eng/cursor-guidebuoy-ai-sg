@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { trackServerEvent } from "@/lib/analytics/server"
 
 // Best-effort anonymization for MVP: scrub textual fields, delete evidence files/rows,
 // mark cases anonymized and log analytics events. In production, move to a queue/job.
@@ -41,11 +42,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Log events
-    await supabase.from("analytics_events").insert({
-      user_id: user.id,
-      event_name: "privacy_delete_completed",
-      event_data: { case_ids: caseIds },
-      created_at: new Date().toISOString(),
+    await trackServerEvent({
+      eventName: "privacy_delete_completed",
+      userId: user.id,
+      eventData: { case_ids: caseIds },
     })
 
     return NextResponse.json({ success: true, anonymized_case_ids: caseIds })

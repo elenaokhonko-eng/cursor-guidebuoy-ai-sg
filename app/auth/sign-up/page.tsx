@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { getSessionToken, convertRouterSessionToUser, clearSessionToken } from "@/lib/router-session"
 import { User, Heart } from "lucide-react"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("")
@@ -67,18 +68,12 @@ export default function SignUpPage() {
   }, [signupStarted, isFromRouter, source])
 
   const trackEvent = async (eventName: string, eventData: any) => {
-    try {
-      const supabase = createClient()
-      await supabase.from("analytics_events").insert({
-        event_name: eventName,
-        event_data: eventData,
-        page_url: window.location.href,
-        user_agent: navigator.userAgent,
-        created_at: new Date().toISOString(),
-      })
-    } catch (error) {
-      console.error("Analytics tracking error:", error)
-    }
+    await trackClientEvent({
+      eventName,
+      eventData,
+      pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+    })
   }
 
   const handleSignUp = async (e: React.FormEvent) => {

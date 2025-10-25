@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useSupabase } from "@/components/providers/supabase-provider"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export default function HomeClient({ initialUser }: { initialUser: User | null }) {
   const supabase = useSupabase()
@@ -38,28 +39,16 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
       setLoading(false)
     })
 
-    trackEvent("homepage_view", {
-      page: "app_homepage",
-      timestamp: new Date().toISOString(),
+    void trackClientEvent({
+      eventName: "homepage_view",
+      eventData: {
+        page: "app_homepage",
+        timestamp: new Date().toISOString(),
+      },
     })
 
     return () => subscription.unsubscribe()
   }, [])
-
-  const trackEvent = async (eventName: string, eventData: any) => {
-    try {
-      await supabase.from("analytics_events").insert({
-        event_name: eventName,
-        event_data: eventData,
-        page_url: typeof window !== "undefined" ? window.location.href : "",
-        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-        created_at: new Date().toISOString(),
-      })
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Analytics tracking error:", error)
-    }
-  }
 
   const handleWaitlistSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,10 +64,13 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to join waitlist")
 
-      await trackEvent("waitlist_signup", {
-        email,
-        source: "home_page",
-        timestamp: new Date().toISOString(),
+      await trackClientEvent({
+        eventName: "waitlist_signup",
+        eventData: {
+          email,
+          source: "home_page",
+          timestamp: new Date().toISOString(),
+        },
       })
 
       setIsSubmitted(true)

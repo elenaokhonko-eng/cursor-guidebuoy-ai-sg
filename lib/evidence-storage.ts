@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export interface EvidenceFile {
   id: string
@@ -54,17 +55,17 @@ export async function uploadEvidence(
   if (evidenceError) throw evidenceError
 
   // Track upload
-  await supabase.from("analytics_events").insert({
-    user_id: userId,
-    event_name: "evidence_uploaded",
-    event_data: {
+  await trackClientEvent({
+    eventName: "evidence_uploaded",
+    userId: userId,
+    eventData: {
       case_id: caseId,
       filename: file.name,
       category: category,
       file_size: file.size,
     },
-    page_url: window.location.href,
-    user_agent: navigator.userAgent,
+    pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
   })
 
   return evidenceData
@@ -107,11 +108,11 @@ export async function deleteEvidence(evidenceId: string, userId: string): Promis
   await supabase.from("evidence").delete().eq("id", evidenceId)
 
   // Track deletion
-  await supabase.from("analytics_events").insert({
-    user_id: userId,
-    event_name: "evidence_deleted",
-    event_data: { case_id: evidence.case_id, evidence_id: evidenceId },
-    page_url: window.location.href,
-    user_agent: navigator.userAgent,
+  await trackClientEvent({
+    eventName: "evidence_deleted",
+    userId: userId,
+    eventData: { case_id: evidence.case_id, evidence_id: evidenceId },
+    pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
   })
 }

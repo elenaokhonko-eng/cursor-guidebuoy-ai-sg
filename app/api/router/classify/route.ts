@@ -4,6 +4,7 @@ import { z } from "zod"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getNextStepsForRuleEngine, type ClaimType } from "@/lib/rules"
+import { logger } from "@/lib/logger"
 
 type ClassificationOutput = {
   claim_type: ClaimType
@@ -19,6 +20,7 @@ if (!API_KEY) {
 
 const genAI = new GoogleGenerativeAI(API_KEY)
 const modelName = "gemini-2.5-flash"
+const log = logger.withContext({ module: "router-classify", model: modelName })
 
 const classifyRequestSchema = z.object({
   session_token: z.string().min(1, "session_token is required"),
@@ -98,7 +100,7 @@ ${sanitizedNarrative}
 
 JSON Output:`
 
-    console.log(`Calling Gemini (${modelName}) for classification via Google SDK...`)
+    log.info("Calling Gemini for classification")
     const result = await model.generateContent(userPrompt)
     const response = result.response
     const rawText =
@@ -106,7 +108,11 @@ JSON Output:`
       response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
       ""
 
-    console.log("[v0] Raw Gemini Classification Response:", rawText)
+    const rawPreview = rawText.length > 1000 ? `${rawText.slice(0, 1000)}…` : rawText
+    log.debug("Gemini classification raw response", {
+      preview: rawPreview,
+      characters: rawText.length,
+    })
 
     let classificationResult: ClassificationOutput
     try {
@@ -114,9 +120,12 @@ JSON Output:`
       if (!classificationResult.claim_type || !classificationResult.recommendation || !classificationResult.summary) {
         throw new Error("Parsed JSON is missing required fields.")
       }
-      console.log("Successfully parsed classification:", classificationResult)
+      log.info("Gemini classification parsed", { classification: classificationResult })
     } catch (parseError: any) {
-      console.error("[v0] Classification JSON parse error:", parseError, "Raw output:", rawText)
+      log.warn("Classification JSON parse error", {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        rawPreview: rawText.slice(0, 400),
+      })
       classificationResult = {
         claim_type: "Other/Unclear",
         recommendation: "Other",
@@ -133,7 +142,11 @@ JSON Output:`
       anonymization_method: "regex_v2",
     })
     if (insertError) {
-      console.error("[v0] Failed to persist anonymized training data:", insertError)
+      log.error("Failed to persist anonymized training data", {
+        error: insertError.message,
+        hint: insertError.hint,
+        details: insertError.details,
+      })
     }
 
     const nextSteps = getNextStepsForRuleEngine(classificationResult.claim_type)
@@ -146,10 +159,14 @@ JSON Output:`
       nextSteps,
     })
   } catch (error: any) {
-    console.error("[v0] Classification API error (Google SDK):", error)
-    if (error.response?.data) {
-      console.error("API Error details:", JSON.stringify(error.response.data, null, 2))
+    log.error("Classification API error", {
+      error: error?.message ?? String(error),
+      stack: error?.stack,
+      status: error?.response?.status,
+    })
+    if (error?.response?.data) {
+      log.debug("Classification API error payload", { payload: error.response.data })
     }
-    return NextResponse.json({ error: error.message || "Failed to classify case" }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Failed to classify case" }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { trackServerEvent } from "@/lib/analytics/server"
 
 const referralTrackSchema = z.object({
   referralCode: z.string().min(1, "referralCode is required"),
@@ -51,14 +52,13 @@ export async function POST(request: NextRequest) {
     await supabase.rpc("increment_referral_count", { user_id: referrerProfile.id })
 
     // Track analytics event
-    await supabase.from("analytics_events").insert({
-      event_name: "referral_conversion",
-      user_id: newUserId,
-      event_data: {
+    await trackServerEvent({
+      eventName: "referral_conversion",
+      userId: newUserId,
+      eventData: {
         referrer_id: referrerProfile.id,
         referral_code: referralCode,
       },
-      created_at: new Date().toISOString(),
     })
 
     return NextResponse.json({ success: true })

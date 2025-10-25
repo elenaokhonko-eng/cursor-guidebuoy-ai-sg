@@ -7,6 +7,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useSupabase } from "@/components/providers/supabase-provider"
 import { uploadEvidence, deleteEvidence } from "@/lib/evidence-storage"
+import { trackClientEvent } from "@/lib/analytics/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -103,12 +104,12 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
       )
       await Promise.all(responsePromises)
       await supabase.from("cases").update({ status: "evidence", updated_at: new Date().toISOString() }).eq("id", caseId)
-      await supabase.from("analytics_events").insert({
-        user_id: caseData.user_id,
-        event_name: "intake_complete",
-        event_data: { case_id: caseId },
-        page_url: typeof window !== "undefined" ? window.location.href : "",
-        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+      await trackClientEvent({
+        eventName: "intake_complete",
+        userId: caseData?.user_id ?? null,
+        eventData: { case_id: caseId },
+        pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       })
     } catch (error) {
       // eslint-disable-next-line no-console

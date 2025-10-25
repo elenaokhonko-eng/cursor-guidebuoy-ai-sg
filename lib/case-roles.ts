@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export type CaseRole = "victim" | "helper" | "lead_victim" | "defendant"
 
@@ -77,12 +78,12 @@ export async function inviteCollaborator(caseId: string, inviterUserId: string, 
 
   if (error) throw error
 
-  await supabase.from("analytics_events").insert({
-    user_id: inviterUserId,
-    event_name: "collaborator_invited",
-    event_data: { case_id: caseId, role: role, invitee_email: inviteeEmail },
-    page_url: window.location.href,
-    user_agent: navigator.userAgent,
+  await trackClientEvent({
+    eventName: "collaborator_invited",
+    userId: inviterUserId,
+    eventData: { case_id: caseId, role, invitee_email: inviteeEmail },
+    pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
   })
 
   return data
@@ -102,11 +103,11 @@ export async function transferCaseOwnership(caseId: string, currentOwnerId: stri
 
   if (error) throw error
 
-  await supabase.from("analytics_events").insert({
-    user_id: currentOwnerId,
-    event_name: "case_ownership_transferred",
-    event_data: { case_id: caseId, new_owner_id: newOwnerId },
-    page_url: window.location.href,
-    user_agent: navigator.userAgent,
+  await trackClientEvent({
+    eventName: "case_ownership_transferred",
+    userId: currentOwnerId,
+    eventData: { case_id: caseId, new_owner_id: newOwnerId },
+    pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
   })
 }

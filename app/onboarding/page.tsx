@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, CheckCircle, ArrowRight, User, Bell, FileText, Sparkles } from "lucide-react"
 import Link from "next/link"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1)
@@ -102,11 +103,10 @@ export default function OnboardingPage() {
         })
 
         // Track onboarding step
-        await supabase.from("analytics_events").insert({
-          event_name: "onboarding_step_complete",
-          user_id: user.id,
-          event_data: { step: 1, step_name: "profile" },
-          created_at: new Date().toISOString(),
+        await trackClientEvent({
+          eventName: "onboarding_step_complete",
+          userId: user.id,
+          eventData: { step: 1, step_name: "profile" },
         })
       } catch (error) {
         console.error("[v0] Error saving profile:", error)
@@ -144,11 +144,10 @@ export default function OnboardingPage() {
         }
 
         // Track case import
-        await supabase.from("analytics_events").insert({
-          event_name: "onboarding_case_imported",
-          user_id: user.id,
-          event_data: { case_id: newCase?.id, from_router: true },
-          created_at: new Date().toISOString(),
+        await trackClientEvent({
+          eventName: "onboarding_case_imported",
+          userId: user.id,
+          eventData: { case_id: newCase?.id, from_router: true },
         })
       } catch (error) {
         console.error("[v0] Error importing case:", error)
@@ -175,11 +174,10 @@ export default function OnboardingPage() {
         })
 
         // Track onboarding step
-        await supabase.from("analytics_events").insert({
-          event_name: "onboarding_step_complete",
-          user_id: user.id,
-          event_data: { step: 3, step_name: "notifications" },
-          created_at: new Date().toISOString(),
+        await trackClientEvent({
+          eventName: "onboarding_step_complete",
+          userId: user.id,
+          eventData: { step: 3, step_name: "notifications" },
         })
       } catch (error) {
         console.error("[v0] Error saving preferences:", error)
@@ -192,12 +190,10 @@ export default function OnboardingPage() {
       setCurrentStep(currentStep + 1)
     } else {
       // Complete onboarding
-      const supabase = createClient()
-      await supabase.from("analytics_events").insert({
-        event_name: "onboarding_complete",
-        user_id: user.id,
-        event_data: { total_steps: totalSteps },
-        created_at: new Date().toISOString(),
+      await trackClientEvent({
+        eventName: "onboarding_complete",
+        userId: user.id,
+        eventData: { total_steps: totalSteps },
       })
 
       const destination = importedCaseId ? `/app/case/${importedCaseId}/dashboard` : "/app"

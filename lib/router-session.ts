@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client"
+import { trackClientEvent } from "@/lib/analytics/client"
 
 export interface RouterSession {
   id: string
@@ -125,19 +125,17 @@ export async function convertRouterSessionToUser(
 
     const { session: data } = (await res.json()) as { session: RouterSession }
 
-    const supabase = createClient()
-    await supabase.from("analytics_events").insert({
-      event_name: "router_conversion_complete",
-      user_id: userId,
-      session_id: sessionToken,
-      event_data: {
+    await trackClientEvent({
+      eventName: "router_conversion_complete",
+      userId: userId,
+      sessionId: sessionToken,
+      eventData: {
         session_id: data.id,
         recommended_path: data.recommended_path,
         eligibility_score: data.eligibility_assessment?.eligibility_score,
       },
-      page_url: typeof window !== "undefined" ? window.location.href : null,
-      user_agent: typeof window !== "undefined" ? navigator.userAgent : null,
-      created_at: new Date().toISOString(),
+      pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      userAgent: typeof window !== "undefined" ? navigator.userAgent : undefined,
     })
 
     return { success: true, sessionData: data }
