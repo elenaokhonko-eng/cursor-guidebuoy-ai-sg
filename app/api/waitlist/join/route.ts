@@ -40,9 +40,15 @@ export async function POST(request: NextRequest) {
     // Add to waitlist
     const displayName = name || [first_name, last_name].filter(Boolean).join(" ") || null
 
+    const insertPayload: Record<string, any> = {
+      email,
+      name: displayName,
+      source,
+    }
+
     const { data: waitlistEntry, error: insertError } = await supabase
       .from("waitlist")
-      .insert({ email, name: displayName, first_name, last_name, source })
+      .insert(insertPayload)
       .select()
       .single()
 
