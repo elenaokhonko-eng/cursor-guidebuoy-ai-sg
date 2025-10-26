@@ -87,17 +87,86 @@ export async function POST(request: NextRequest) {
 
     console.log("[Auth Register] Supabase user created successfully. User ID:", newUserId)
 
-    const serviceSupabase = createServiceClient()
+    const supabaseServiceRole = createServiceClient()
     const maxRetries = 3
     const initialDelayMs = 2000
     const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     const isForeignKeyViolation = (error: unknown) =>
       typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23503"
 
+    // Verify the user is visible via the admin API before attempting FK operations.
+    const adminCheckAttempts = 5
+    let adminUserVisible = false
+    for (let attempt = 1; attempt <= adminCheckAttempts; attempt++) {
+      try {
+        const {
+          data: adminUser,
+          error: adminError,
+        } = await supabaseServiceRole.auth.admin.getUserById(newUserId)
+        if (adminError) {
+          console.warn(
+            `[Auth Register] Admin visibility check attempt ${attempt}/${adminCheckAttempts} failed for user ${newUserId}:`,
+            adminError,
+          )
+        } else if (!adminUser?.user) {
+          console.warn(
+            `[Auth Register] Admin visibility check attempt ${attempt}/${adminCheckAttempts} returned no user for ${newUserId}`,
+          )
+        } else {
+          adminUserVisible = true
+          console.log(
+            `[Auth Register] Admin visibility confirmed for user ${newUserId} on attempt ${attempt}. Last sign-in:`,
+            adminUser.user.last_sign_in_at,
+          )
+          break
+        }
+      } catch (adminCheckError) {
+        console.error(
+          `[Auth Register] Admin visibility check attempt ${attempt}/${adminCheckAttempts} threw for user ${newUserId}:`,
+          adminCheckError,
+        )
+      }
+
+      if (attempt < adminCheckAttempts) {
+        await delay(initialDelayMs * 2 ** (attempt - 1))
+      }
+    }
+
+    if (!adminUserVisible) {
+      console.error(`[Auth Register] Admin API never observed user ${newUserId} after ${adminCheckAttempts} attempts.`)
+    }
+
     let routerSessionLinked = false
     let routerSessionData: RouterSessionRow | null = null
     let sessionLinkError: string | null = null
     if (sessionToken) {
+      try {
+        const {
+          data: existingSession,
+          error: existingSessionError,
+        } = await supabaseServiceRole
+          .from("router_sessions")
+          .select("session_token, converted_to_user_id, status, converted_at")
+          .eq("session_token", sessionToken)
+          .maybeSingle()
+
+        if (existingSessionError) {
+          console.error(
+            `[Auth Register] Pre-update fetch failed for session ${sessionToken}:`,
+            existingSessionError,
+          )
+        } else if (!existingSession) {
+          console.warn(`[Auth Register] Pre-update fetch did not find router_session ${sessionToken}`)
+        } else {
+          console.log(
+            `[Auth Register] Pre-update session snapshot for ${sessionToken}:`,
+            existingSession,
+          )
+        }
+      } catch (sessionFetchError) {
+        console.error(`[Auth Register] Unexpected error fetching router_session ${sessionToken}:`, sessionFetchError)
+      }
+
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         console.log(
           `[Auth Register] Attempt ${attempt}/${maxRetries} to link session ${sessionToken} to user ${newUserId}`,
@@ -106,7 +175,7 @@ export async function POST(request: NextRequest) {
           const {
             data: sessionUpdateData,
             error: sessionUpdateError,
-          } = await serviceSupabase
+          } = await supabaseServiceRole
             .from("router_sessions")
             .update({
               converted_to_user_id: newUserId,
@@ -170,7 +239,7 @@ export async function POST(request: NextRequest) {
           `[Auth Register] Attempt ${attempt}/${maxRetries} to insert consent log for new user ${newUserId}`,
         )
         try {
-          const { error: consentError } = await serviceSupabase.from("consent_logs").insert({
+          const { error: consentError } = await supabaseServiceRole.from("consent_logs").insert({
             user_id: newUserId,
             email,
             consent_purposes: consent.purposes,
