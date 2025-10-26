@@ -1,4 +1,5 @@
 import type * as React from "react"
+import { buildAppUrl } from "@/lib/url"
 
 type WelcomeEmailProps = {
   userName?: string
@@ -42,7 +43,7 @@ export const WelcomeEmail: React.FC<WelcomeEmailProps> = ({ userName, userEmail,
       </ol>
       <div style={{ textAlign: "center", marginTop: "32px" }}>
         <a
-          href={`${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "https://guidebuoy.ai"}/onboarding`}
+          href={buildAppUrl("/onboarding")}
           style={{
             backgroundColor: "#0066cc",
             color: "white",
@@ -111,7 +112,7 @@ export const WaitlistConfirmationEmail: React.FC<WaitlistConfirmationProps> = ({
       )}
       <div style={{ textAlign: "center", marginTop: "32px" }}>
         <a
-          href={`${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "https://guidebuoy.ai"}/resources`}
+          href={buildAppUrl("/resources")}
           style={{
             backgroundColor: "#0066cc",
             color: "white",
@@ -149,7 +150,7 @@ export const InvitationEmail: React.FC<InvitationEmailProps> = ({
   invitationToken,
   role,
 }) => {
-  const inviteUrl = `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "https://guidebuoy.ai"}/invite/${invitationToken}`
+  const inviteUrl = buildAppUrl(`/invite/${invitationToken}`)
 
   return (
     <div style={{ fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto" }}>
@@ -213,3 +214,4 @@ export const InvitationEmail: React.FC<InvitationEmailProps> = ({
     </div>
   )
 }
+

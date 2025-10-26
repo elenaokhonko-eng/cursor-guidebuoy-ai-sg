@@ -13,6 +13,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { getSessionToken, convertRouterSessionToUser, clearSessionToken } from "@/lib/router-session"
+import { buildAppUrl } from "@/lib/url"
 import { User, Heart } from "lucide-react"
 import { trackClientEvent } from "@/lib/analytics/client"
 
@@ -23,7 +24,6 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const consentPurposes = pdpaConsentPurposes
   const [signupStarted, setSignupStarted] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -92,11 +92,13 @@ export default function SignUpPage() {
     setError(null)
 
     try {
+      const emailRedirectTo = buildAppUrl("/app")
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/app`,
+          emailRedirectTo,
           data: {
             role: role,
           },
@@ -141,7 +143,7 @@ export default function SignUpPage() {
 
         await trackEvent("consent_accepted", {
           user_id: data.user.id,
-          purposes: consentPurposes.length > 0 ? consentPurposes : pdpaConsentPurposes,
+          purposes: pdpaConsentPurposes,
           timestamp: new Date().toISOString(),
         })
 
