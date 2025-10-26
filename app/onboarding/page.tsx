@@ -207,7 +207,7 @@ export default function OnboardingPage() {
         const eligibilityScore =
           typeof eligibility.eligibility_score === "number" ? eligibility.eligibility_score : undefined
 
-        console.log("[onboarding] case insert payload", {
+        const casePayload = {
           user_id: user.id,
           owner_user_id: user.id,
           creator_user_id: user.id,
@@ -216,22 +216,14 @@ export default function OnboardingPage() {
           case_summary: caseSummary,
           eligibility_status: deriveEligibilityStatus(recommendation),
           strength_score: deriveStrengthScore(eligibilityScore),
-        })
+        }
+        console.log("[onboarding] Preparing to insert case. Payload:", JSON.stringify(casePayload, null, 2))
+        const {
+          data: { user: authUserCheck },
+        } = await supabase.auth.getUser()
+        console.log("[onboarding] Current authenticated user ID:", authUserCheck?.id)
 
-        const { data: newCase, error: caseError } = await supabase
-          .from("cases")
-          .insert({
-            user_id: user.id,
-            owner_user_id: user.id,
-            creator_user_id: user.id,
-            claim_type: mappedClaimType,
-            status: "intake",
-            case_summary: caseSummary,
-            eligibility_status: deriveEligibilityStatus(recommendation),
-            strength_score: deriveStrengthScore(eligibilityScore),
-          })
-          .select()
-          .single()
+        const { data: newCase, error: caseError } = await supabase.from("cases").insert(casePayload).select().single()
 
         if (caseError) {
           throw caseError
