@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    const newUserId = data.user?.id
+    let newUserId = data.user?.id
     if (!newUserId) {
       console.error("[Auth Register] Signup returned without user data:", data)
       return NextResponse.json({ error: "Registration failed" }, { status: 500 })
@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
     // Verify the user is visible via the admin API before attempting FK operations.
     const adminCheckAttempts = 5
     let adminUserVisible = false
+    let ensuredUserId = newUserId
+
     for (let attempt = 1; attempt <= adminCheckAttempts; attempt++) {
       try {
         const {
@@ -134,6 +136,64 @@ export async function POST(request: NextRequest) {
 
     if (!adminUserVisible) {
       console.error(`[Auth Register] Admin API never observed user ${newUserId} after ${adminCheckAttempts} attempts.`)
+    }
+
+    if (!adminUserVisible) {
+      try {
+        const listResult = await supabaseServiceRole.auth.admin.listUsers({ email })
+        const matchedUser = listResult.data.users?.find((user) => user.email?.toLowerCase() === email.toLowerCase())
+        if (matchedUser) {
+          ensuredUserId = matchedUser.id
+          adminUserVisible = true
+          console.log(
+            `[Auth Register] Admin listUsers located user ${ensuredUserId} after direct lookup by email ${email}`,
+          )
+        }
+      } catch (listError) {
+        console.error(`[Auth Register] Admin listUsers lookup failed for email ${email}:`, listError)
+      }
+    }
+
+    if (!adminUserVisible) {
+      try {
+        console.warn(
+          `[Auth Register] Attempting admin createUser fallback for email ${email} due to delayed replication.`,
+        )
+        const { data: createdUser, error: createError } = await supabaseServiceRole.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: userMetadata,
+        })
+        if (createError) {
+          throw createError
+        }
+        if (createdUser?.user?.id) {
+          ensuredUserId = createdUser.user.id
+          adminUserVisible = true
+          console.log(
+            `[Auth Register] Admin createUser fallback succeeded. User ID: ${ensuredUserId}. email_confirm set true.`,
+          )
+        } else {
+          console.error("[Auth Register] Admin createUser fallback returned without user object:", createdUser)
+        }
+      } catch (createError) {
+        console.error("[Auth Register] Admin createUser fallback failed:", createError)
+      }
+    }
+
+    if (!adminUserVisible) {
+      console.error(
+        `[Auth Register] Unable to ensure user ${newUserId} exists after admin fallback attempts. Aborting signup.`,
+      )
+      return NextResponse.json({ error: "User provisioning delayed. Please try again shortly." }, { status: 503 })
+    }
+
+    if (ensuredUserId !== newUserId) {
+      console.warn(
+        `[Auth Register] Effective user ID adjusted from ${newUserId} to ${ensuredUserId} after admin fallbacks.`,
+      )
+      newUserId = ensuredUserId
     }
 
     let routerSessionLinked = false
