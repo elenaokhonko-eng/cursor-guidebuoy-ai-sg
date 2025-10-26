@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import Link from "next/link"
@@ -76,6 +76,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const [isDragging, setIsDragging] = useState(false)
   const [uploadErrors, setUploadErrors] = useState<string[]>([])
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false)
+  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null)
 
   const intakeComplete = useMemo(() => intakeQuestions.every((q) => !q.required || intakeResponses[q.key]), [intakeResponses])
 
@@ -114,6 +115,24 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
       setIsSavingIntake(false)
     }
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get("checkout")
+    if (status === "success" || status === "cancel") {
+      setCheckoutStatus(status)
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (checkoutStatus === "success") {
+      const timeout = setTimeout(() => setCheckoutStatus(null), 8000)
+      return () => clearTimeout(timeout)
+    }
+    return
+  }, [checkoutStatus])
 
   const handleIntakeNext = async () => {
     const currentQuestion = intakeQuestions[currentIntakeStep]
@@ -289,6 +308,28 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
+          {checkoutStatus === "success" && (
+            <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/10 p-4 flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5" />
+              <div>
+                <p className="font-semibold text-emerald-700">Payment confirmed</p>
+                <p className="text-sm text-emerald-700/80 dark:text-emerald-200/80">
+                  Thank you for your purchase! Your case pack is unlocked—continue building your claim below.
+                </p>
+              </div>
+            </div>
+          )}
+          {checkoutStatus === "cancel" && (
+            <div className="rounded-xl border border-amber-400/50 bg-amber-500/10 p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-700">Checkout cancelled</p>
+                <p className="text-sm text-amber-700/80 dark:text-amber-200/80">
+                  Your payment wasn&apos;t completed. You can retry whenever you&apos;re ready.
+                </p>
+              </div>
+            </div>
+          )}
           <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20 rounded-xl">
             <CardHeader>
               <div className="flex items-start gap-4">
