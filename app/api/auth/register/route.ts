@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     const serviceSupabase = createServiceClient()
     const maxRetries = 3
-    const initialDelayMs = 500
+    const initialDelayMs = 2000
     const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     const isForeignKeyViolation = (error: unknown) =>
       typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23503"
