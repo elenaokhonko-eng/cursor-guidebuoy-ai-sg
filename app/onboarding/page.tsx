@@ -207,6 +207,17 @@ export default function OnboardingPage() {
         const eligibilityScore =
           typeof eligibility.eligibility_score === "number" ? eligibility.eligibility_score : undefined
 
+        console.log("[onboarding] case insert payload", {
+          user_id: user.id,
+          owner_user_id: user.id,
+          creator_user_id: user.id,
+          claim_type: mappedClaimType,
+          status: "intake",
+          case_summary: caseSummary,
+          eligibility_status: deriveEligibilityStatus(recommendation),
+          strength_score: deriveStrengthScore(eligibilityScore),
+        })
+
         const { data: newCase, error: caseError } = await supabase
           .from("cases")
           .insert({
