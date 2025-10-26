@@ -78,6 +78,9 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false)
   const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null)
   const [hasUnlockedCase, setHasUnlockedCase] = useState<boolean>(Boolean(payment))
+  const [isGeneratingPack, setIsGeneratingPack] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
+  const [packDownloadUrl, setPackDownloadUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -264,6 +267,43 @@ useEffect(() => {
     if (fileType.includes("excel") || fileType.includes("spreadsheet")) return <FileText className="h-5 w-5 text-green-600" />
     return <FileText className="h-5 w-5 text-muted-foreground" />
   }
+
+  const handleGenerateCasePack = useCallback(async () => {
+    if (!caseId) return
+
+    setIsGeneratingPack(true)
+    setGenerationError(null)
+    setPackDownloadUrl(null)
+
+    // eslint-disable-next-line no-console
+    console.log("Initiating case pack generation for case:", caseId)
+
+    try {
+      const response = await fetch(`/api/cases/${caseId}/generate-pack`, {
+        method: "POST",
+      })
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP error! status: ${response.status}`)
+      }
+
+      if (!result.downloadUrl) {
+        throw new Error("API did not return a download URL.")
+      }
+
+      // eslint-disable-next-line no-console
+      console.log("Case pack generated. Download URL:", result.downloadUrl)
+      setPackDownloadUrl(result.downloadUrl)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to generate case pack:", error)
+      const message = error instanceof Error ? error.message : String(error)
+      setGenerationError(`Failed to generate case pack: ${message}`)
+    } finally {
+      setIsGeneratingPack(false)
+    }
+  }, [caseId])
 
   const currentQuestion = intakeQuestions[currentIntakeStep]
   const intakeProgress = ((currentIntakeStep + 1) / intakeQuestions.length) * 100
@@ -520,7 +560,46 @@ useEffect(() => {
                 <div className="text-center">
                   <h3 className="font-semibold text-xl mb-2">Ready to Generate Your Case Pack!</h3>
                   <p className="text-muted-foreground mb-6">You{"'"}ve completed intake and uploaded {uploadedFiles.length} pieces of evidence. Generate your professional FIDReC documents now.</p>
-                  <Button size="lg" className="rounded-full"><Download className="h-5 w-5 mr-2" />Generate & Download Case Pack</Button>
+                  <Button
+                    size="lg"
+                    className="rounded-full"
+                    onClick={handleGenerateCasePack}
+                    disabled={isGeneratingPack || !hasUnlockedCase || !intakeComplete || uploadedFiles.length === 0}
+                  >
+                    {isGeneratingPack ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-5 w-5 mr-2" />
+                        Generate & Download Case Pack
+                      </>
+                    )}
+                  </Button>
+                  {isGeneratingPack && (
+                    <p className="mt-2 text-center text-sm text-muted-foreground">
+                      Generating your case pack, please wait...
+                    </p>
+                  )}
+                  {generationError && (
+                    <p className="mt-2 text-center text-sm text-destructive">{generationError}</p>
+                  )}
+                  {packDownloadUrl && !isGeneratingPack && (
+                    <div className="mt-4 text-center">
+                      <p className="text-sm text-green-600">Case pack generated successfully!</p>
+                      <a
+                        href={packDownloadUrl}
+                        download={`GuideBuoy_Case_${caseId || "pack"}.pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-2 text-blue-600 hover:underline"
+                      >
+                        Click here to Download PDF
+                      </a>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
