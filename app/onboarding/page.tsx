@@ -212,6 +212,7 @@ export default function OnboardingPage() {
           .insert({
             user_id: user.id,
             owner_user_id: user.id,
+            creator_user_id: user.id,
             claim_type: mappedClaimType,
             status: "intake",
             case_summary: caseSummary,
