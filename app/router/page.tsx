@@ -160,7 +160,7 @@ export default function RouterPage() {
               <CardTitle className="text-2xl">Share Your Dispute</CardTitle>
               <CardDescription>
                 Describe what happened in your own words. Include details like dates, amounts, and what the institution
-                did or didn't do.
+                did or did not do.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -236,7 +236,7 @@ export default function RouterPage() {
                   <li>• When the incident happened</li>
                   <li>• What went wrong and how much money is involved</li>
                   <li>• What the institution has said or done about it</li>
-                  <li>• Any complaints you've already filed</li>
+                  <li>• Any complaints you{"'"}ve already filed</li>
                 </ul>
               </div>
 

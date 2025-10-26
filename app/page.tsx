@@ -289,7 +289,7 @@ export default function LandingPage() {
                   <li>• When the incident happened</li>
                   <li>• What went wrong and how much money is involved</li>
                   <li>• What the institution has said or done about it</li>
-                  <li>• Any complaints you've already filed</li>
+                  <li>• Any complaints you{"'"}ve already filed</li>
                 </ul>
               </div>
 

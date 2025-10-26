@@ -125,6 +125,14 @@ export async function convertRouterSessionToUser(
 
     const { session: data } = (await res.json()) as { session: RouterSession }
 
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("converted_router_session_token", sessionToken)
+      } catch {
+        // Ignore storage errors (e.g., Safari private mode)
+      }
+    }
+
     await trackClientEvent({
       eventName: "router_conversion_complete",
       userId: userId,

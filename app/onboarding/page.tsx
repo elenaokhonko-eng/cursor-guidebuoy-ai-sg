@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, CheckCircle, ArrowRight, User, Bell, FileText, Sparkles } from "lucide-react"
 import Link from "next/link"
+import type { RouterSession } from "@/lib/router-session"
 import { trackClientEvent } from "@/lib/analytics/client"
 import type { RouterSession } from "@/lib/router-session"
 
@@ -51,36 +52,72 @@ export default function OnboardingPage() {
 
       setUser(currentUser)
 
-      // Check if user has a converted router session
-      try {
-        const res = await fetch(`/api/router/session?convertedFor=${encodeURIComponent(currentUser.id)}`, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          credentials: "include",
-        })
-        if (res.ok) {
+      const retrieveSessionByToken = async (token: string) => {
+        try {
+          const res = await fetch(`/api/router/session?token=${encodeURIComponent(token)}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            credentials: "include",
+          })
+          if (!res.ok) {
+            return false
+          }
           const { session } = (await res.json()) as { session: RouterSession | null }
           if (session) {
             setHasRouterSession(true)
             setRouterSessionData(session)
             setImportCase(true)
+            return true
+          }
+        } catch (err) {
+          console.error("[v0] Session fetch by token failed:", err)
+        }
+        return false
+      }
+
+      let sessionLoaded = false
+      if (typeof window !== "undefined") {
+        const storedToken = sessionStorage.getItem("converted_router_session_token")
+        if (storedToken) {
+          sessionLoaded = await retrieveSessionByToken(storedToken)
+          if (sessionLoaded) {
+            sessionStorage.removeItem("converted_router_session_token")
+          }
+        }
+      }
+
+      if (!sessionLoaded) {
+        // Fall back to fetching by user id
+        try {
+          const res = await fetch(`/api/router/session?convertedFor=${encodeURIComponent(currentUser.id)}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            credentials: "include",
+          })
+          if (res.ok) {
+            const { session } = (await res.json()) as { session: RouterSession | null }
+            if (session) {
+              setHasRouterSession(true)
+              setRouterSessionData(session)
+              setImportCase(true)
+            } else {
+              setHasRouterSession(false)
+              setImportCase(false)
+            }
+          } else if (res.status === 404) {
+            setHasRouterSession(false)
+            setImportCase(false)
           } else {
+            const body = await res.text()
+            console.error("[v0] Converted session fetch error:", res.status, body)
             setHasRouterSession(false)
             setImportCase(false)
           }
-        } else if (res.status === 404) {
-          setHasRouterSession(false)
-          setImportCase(false)
-        } else {
-          const body = await res.text()
-          console.error("[v0] Converted session fetch error:", res.status, body)
+        } catch (err) {
+          console.error("[v0] Failed to fetch converted router session:", err)
           setHasRouterSession(false)
           setImportCase(false)
         }
-      } catch (err) {
-        console.error("[v0] Failed to fetch converted router session:", err)
-        setHasRouterSession(false)
-        setImportCase(false)
       }
 
       setIsLoading(false)
