@@ -416,7 +416,7 @@ useEffect(() => {
             </Card>
           </div>
 
-          {payment && !intakeComplete && (
+          {hasUnlockedCase && !intakeComplete && (
             <Card className="rounded-xl border-primary/20">
               <CardHeader>
                 <CardTitle>Guided Case Intake</CardTitle>
@@ -530,6 +530,9 @@ useEffect(() => {
     </div>
   )
 }
+
+
+
 
 
 
