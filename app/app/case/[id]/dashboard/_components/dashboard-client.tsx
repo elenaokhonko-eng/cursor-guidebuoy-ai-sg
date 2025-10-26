@@ -77,6 +77,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const [uploadErrors, setUploadErrors] = useState<string[]>([])
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false)
   const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null)
+  const [hasUnlockedCase, setHasUnlockedCase] = useState<boolean>(Boolean(payment))
 
   const intakeComplete = useMemo(() => intakeQuestions.every((q) => !q.required || intakeResponses[q.key]), [intakeResponses])
 
@@ -122,6 +123,9 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
     const status = params.get("checkout")
     if (status === "success" || status === "cancel") {
       setCheckoutStatus(status)
+      if (status === "success") {
+        setHasUnlockedCase(true)
+      }
       window.history.replaceState({}, "", window.location.pathname)
     }
   }, [])
@@ -150,7 +154,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
 
   const handleFileUpload = useCallback(
     async (files: FileList) => {
-      if (!payment || files.length === 0 || !user) return
+      if (!hasUnlockedCase || files.length === 0 || !user) return
       setIsUploading(true)
       setUploadErrors([])
       const errors: string[] = []
@@ -193,7 +197,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
         setIsUploading(false)
       }
     },
-    [payment, user, caseId],
+    [hasUnlockedCase, user, caseId],
   )
 
   const handleDeleteFile = useCallback(
@@ -285,7 +289,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
               <Badge variant="secondary" className="rounded-full">
                 {caseData?.claim_type?.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
               </Badge>
-              {payment && (
+              {hasUnlockedCase && (
                 <Badge variant="default" className="bg-accent text-accent-foreground rounded-full">Premium Access</Badge>
               )}
               {user && (
@@ -338,20 +342,24 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-xl mb-2 text-balance">
-                    {!payment ? (
-                      "Ready to unlock your case pack?"
-                    ) : !intakeComplete ? (
-                      <>Let{"'"}s build your case story</>
-                    ) : uploadedFiles.length === 0 ? (
-                      "Upload your evidence"
-                    ) : (
-                      "Your case is ready!"
-                    )}
+                    {!hasUnlockedCase
+                      ? "Ready to unlock your case pack?"
+                      : !intakeComplete
+                        ? <>Let{"'"}s build your case story</>
+                        : uploadedFiles.length === 0
+                          ? "Upload your evidence"
+                          : "Your case is ready!"}
                   </CardTitle>
                   <p className="text-muted-foreground mb-4 text-pretty">
-                    {!payment ? "Get professional documents and step-by-step guidance for S$99." : !intakeComplete ? "Answer a few questions to build a strong foundation for your FIDReC submission." : uploadedFiles.length === 0 ? "Add supporting documents to strengthen your case." : "Review your information and generate your professional case pack."}
+                    {!hasUnlockedCase
+                      ? "Get professional documents and step-by-step guidance for S$99."
+                      : !intakeComplete
+                        ? "Answer a few questions to build a strong foundation for your FIDReC submission."
+                        : uploadedFiles.length === 0
+                          ? "Add supporting documents to strengthen your case."
+                          : "Review your information and generate your professional case pack."}
                   </p>
-                  {!payment && (
+                  {!hasUnlockedCase && (
                     <Button size="lg" className="rounded-full" onClick={handleCheckout} disabled={isCreatingCheckout}>
                       {isCreatingCheckout ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Redirecting to Checkout...</>) : (<>Unlock Case Pack - S$99</>)}
                     </Button>
@@ -426,7 +434,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
             </Card>
           )}
 
-          {payment && intakeComplete && (
+          {hasUnlockedCase && intakeComplete && (
             <Card className="rounded-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Upload Evidence</CardTitle>
@@ -490,7 +498,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
             </Card>
           )}
 
-          {payment && intakeComplete && uploadedFiles.length > 0 && (
+          {hasUnlockedCase && intakeComplete && uploadedFiles.length > 0 && (
             <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30 rounded-xl">
               <CardContent className="pt-6">
                 <div className="text-center">
@@ -506,5 +514,12 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
     </div>
   )
 }
+
+
+
+
+
+
+
 
 
