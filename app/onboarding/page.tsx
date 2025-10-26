@@ -207,10 +207,19 @@ export default function OnboardingPage() {
         const eligibilityScore =
           typeof eligibility.eligibility_score === "number" ? eligibility.eligibility_score : undefined
 
+        console.log("[onboarding] Fetching current session before case insert...")
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError || !sessionData?.session) {
+          console.error("[onboarding] CRITICAL: No active session found before case insert!", sessionError)
+          throw sessionError ?? new Error("User session not found. Cannot save case.")
+        }
+        const currentUserId = sessionData.session.user.id
+        console.log("[onboarding] Current session user ID:", currentUserId)
+
         const casePayload = {
-          user_id: user.id,
-          owner_user_id: user.id,
-          creator_user_id: user.id,
+          user_id: currentUserId,
+          owner_user_id: currentUserId,
+          creator_user_id: currentUserId,
           claim_type: mappedClaimType,
           status: "intake",
           case_summary: caseSummary,
@@ -218,10 +227,6 @@ export default function OnboardingPage() {
           strength_score: deriveStrengthScore(eligibilityScore),
         }
         console.log("[onboarding] Preparing to insert case. Payload:", JSON.stringify(casePayload, null, 2))
-        const {
-          data: { user: authUserCheck },
-        } = await supabase.auth.getUser()
-        console.log("[onboarding] Current authenticated user ID:", authUserCheck?.id)
 
         const { data: newCase, error: caseError } = await supabase.from("cases").insert(casePayload).select().single()
 
