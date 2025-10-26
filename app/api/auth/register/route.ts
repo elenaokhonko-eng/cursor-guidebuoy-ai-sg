@@ -88,47 +88,74 @@ export async function POST(request: NextRequest) {
     console.log("[Auth Register] Supabase user created successfully. User ID:", newUserId)
 
     const serviceSupabase = createServiceClient()
+    const maxRetries = 3
+    const initialDelayMs = 500
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+    const isForeignKeyViolation = (error: unknown) =>
+      typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23503"
 
     let routerSessionLinked = false
     let routerSessionData: RouterSessionRow | null = null
     let sessionLinkError: string | null = null
     if (sessionToken) {
-      console.log(`[Auth Register] Linking session ${sessionToken} to new user ${newUserId}`)
-      try {
-        const {
-          data: sessionUpdateData,
-          error: sessionUpdateError,
-        } = await serviceSupabase
-          .from("router_sessions")
-          .update({
-            converted_to_user_id: newUserId,
-            status: "CONVERTED",
-            converted_at: new Date().toISOString(),
-          })
-          .eq("session_token", sessionToken)
-          .select()
-          .maybeSingle()
-
-        if (sessionUpdateError) {
-          throw sessionUpdateError
-        }
-
-        if (!sessionUpdateData) {
-          console.warn(`[Auth Register] No router_session found for token ${sessionToken}`)
-        } else {
-          routerSessionLinked = true
-          routerSessionData = sessionUpdateData as RouterSessionRow
-          console.log(
-            `[Auth Register] Successfully updated router_session ${sessionToken}. Result:`,
-            routerSessionData,
-          )
-        }
-      } catch (updateError) {
-        sessionLinkError = updateError instanceof Error ? updateError.message : String(updateError)
-        console.error(
-          `[Auth Register] Failed to update router_session ${sessionToken} for user ${newUserId}:`,
-          updateError,
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        console.log(
+          `[Auth Register] Attempt ${attempt}/${maxRetries} to link session ${sessionToken} to user ${newUserId}`,
         )
+        try {
+          const {
+            data: sessionUpdateData,
+            error: sessionUpdateError,
+          } = await serviceSupabase
+            .from("router_sessions")
+            .update({
+              converted_to_user_id: newUserId,
+              status: "CONVERTED",
+              converted_at: new Date().toISOString(),
+            })
+            .eq("session_token", sessionToken)
+            .select()
+            .maybeSingle()
+
+          if (sessionUpdateError) {
+            if (isForeignKeyViolation(sessionUpdateError) && attempt < maxRetries) {
+              console.warn(
+                `[Auth Register] Attempt ${attempt}: FK violation linking session ${sessionToken}. Retrying after delay...`,
+              )
+              await delay(initialDelayMs * 2 ** (attempt - 1))
+              continue
+            }
+            throw sessionUpdateError
+          }
+
+          if (!sessionUpdateData) {
+            console.warn(`[Auth Register] No router_session found for token ${sessionToken}`)
+          } else {
+            routerSessionLinked = true
+            routerSessionData = sessionUpdateData as RouterSessionRow
+            sessionLinkError = null
+            console.log(
+              `[Auth Register] Successfully updated router_session ${sessionToken} on attempt ${attempt}. Result:`,
+              routerSessionData,
+            )
+          }
+          break
+        } catch (updateError) {
+          sessionLinkError = updateError instanceof Error ? updateError.message : String(updateError)
+          console.error(
+            `[Auth Register] Attempt ${attempt} failed to update router_session ${sessionToken} for user ${newUserId}:`,
+            updateError,
+          )
+          if (isForeignKeyViolation(updateError) && attempt < maxRetries) {
+            await delay(initialDelayMs * 2 ** (attempt - 1))
+            continue
+          }
+          break
+        }
+      }
+
+      if (!routerSessionLinked) {
+        console.error(`[Auth Register] All attempts failed to update router_session ${sessionToken}.`)
       }
     } else {
       console.warn(
@@ -138,23 +165,48 @@ export async function POST(request: NextRequest) {
 
     let consentLogged = false
     if (consent) {
-      try {
-        const { error: consentError } = await serviceSupabase.from("consent_logs").insert({
-          user_id: newUserId,
-          email,
-          consent_purposes: consent.purposes,
-          policy_version: consent.policyVersion,
-          consented_at: consent.consentedAt ?? new Date().toISOString(),
-        })
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        console.log(
+          `[Auth Register] Attempt ${attempt}/${maxRetries} to insert consent log for new user ${newUserId}`,
+        )
+        try {
+          const { error: consentError } = await serviceSupabase.from("consent_logs").insert({
+            user_id: newUserId,
+            email,
+            consent_purposes: consent.purposes,
+            policy_version: consent.policyVersion,
+            consented_at: consent.consentedAt ?? new Date().toISOString(),
+          })
 
-        if (consentError) {
-          throw consentError
+          if (consentError) {
+            if (isForeignKeyViolation(consentError) && attempt < maxRetries) {
+              console.warn(
+                `[Auth Register] Attempt ${attempt}: FK violation inserting consent log for user ${newUserId}. Retrying...`,
+              )
+              await delay(initialDelayMs * 2 ** (attempt - 1))
+              continue
+            }
+            throw consentError
+          }
+
+          consentLogged = true
+          console.log(`[Auth Register] Consent log inserted successfully for new user ${newUserId} on attempt ${attempt}`)
+          break
+        } catch (consentError) {
+          console.error(
+            `[Auth Register] Attempt ${attempt} failed to insert consent log for new user ${newUserId}:`,
+            consentError,
+          )
+          if (isForeignKeyViolation(consentError) && attempt < maxRetries) {
+            await delay(initialDelayMs * 2 ** (attempt - 1))
+            continue
+          }
+          break
         }
+      }
 
-        consentLogged = true
-        console.log(`[Auth Register] Consent log inserted successfully for new user ${newUserId}`)
-      } catch (consentError) {
-        console.error(`[Auth Register] Consent log insert failed for new user ${newUserId}:`, consentError)
+      if (!consentLogged) {
+        console.error(`[Auth Register] All attempts failed to insert consent log for user ${newUserId}.`)
       }
     }
 
