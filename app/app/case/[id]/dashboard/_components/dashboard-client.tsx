@@ -229,7 +229,9 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const currentQuestion = intakeQuestions[currentIntakeStep]
   const intakeProgress = ((currentIntakeStep + 1) / intakeQuestions.length) * 100
 
-  if (caseData?.claim_type !== "fidrec_scam" && caseData?.claim_type !== "fidrec_fraud") {
+  const supportedCaseTypes = new Set(["fidrec_scam", "fidrec_fraud", "phishing_scam"])
+
+  if (!caseData?.claim_type || !supportedCaseTypes.has(caseData.claim_type)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w/full rounded-xl">
