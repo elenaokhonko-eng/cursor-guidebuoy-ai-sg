@@ -6,10 +6,10 @@ export interface RouterSession {
   dispute_narrative?: string
   voice_transcript?: string
   audio_file_url?: string
-  classification_result?: any
-  clarifying_questions?: any
-  user_responses?: any
-  eligibility_assessment?: any
+  classification_result?: Record<string, unknown> | null
+  clarifying_questions?: Record<string, unknown> | null
+  user_responses?: Record<string, unknown> | null
+  eligibility_assessment?: { [key: string]: unknown; eligibility_score?: number | null } | null
   recommended_path?: string
   created_at: string
   expires_at: string

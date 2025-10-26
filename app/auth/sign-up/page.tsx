@@ -23,7 +23,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [consentPurposes, setConsentPurposes] = useState<string[]>([])
+  const consentPurposes = pdpaConsentPurposes
   const [signupStarted, setSignupStarted] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -67,7 +67,7 @@ export default function SignUpPage() {
     }
   }, [signupStarted, isFromRouter, source])
 
-  const trackEvent = async (eventName: string, eventData: any) => {
+  const trackEvent = async (eventName: string, eventData: Record<string, unknown>) => {
     await trackClientEvent({
       eventName,
       eventData,
@@ -110,7 +110,7 @@ export default function SignUpPage() {
         const consentPayload = {
           user_id: data.user.id,
           email,
-          consent_purposes: consentPurposes.length > 0 ? consentPurposes : pdpaConsentPurposes,
+          consent_purposes: pdpaConsentPurposes,
           policy_version: "1.0",
           consented_at: new Date().toISOString(),
         }
@@ -169,7 +169,7 @@ export default function SignUpPage() {
           })
         } catch (emailError) {
           console.error("[v0] Welcome email failed:", emailError)
-          // Don't block signup if email fails
+          // Do not block signup if email fails
         }
 
         router.push("/onboarding")
@@ -235,7 +235,7 @@ export default function SignUpPage() {
                           <Heart className="h-4 w-4 text-accent" />
                           <div>
                             <div className="font-medium">Helper</div>
-                            <div className="text-xs text-muted-foreground">I'm helping someone with their case</div>
+                            <div className="text-xs text-muted-foreground">I{"'"}m helping someone with their case</div>
                           </div>
                         </Label>
                       </div>
@@ -322,3 +322,4 @@ export default function SignUpPage() {
     </div>
   )
 }
+

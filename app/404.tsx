@@ -19,9 +19,9 @@ export default function NotFound() {
               className="rounded-full shadow-lg"
             />
           </div>
-          <h1 className="text-2xl font-bold mb-4">Hmm, I can't find that page</h1>
+          <h1 className="text-2xl font-bold mb-4">Hmm, I can{"'"}t find that page</h1>
           <p className="text-muted-foreground mb-6">Let me guide you back to where you need to be.</p>
-          <p className="text-sm text-muted-foreground italic mb-6">— Lumi, your AI guide</p>
+          <p className="text-sm text-muted-foreground italic mb-6">- Lumi, your AI guide</p>
           <Link href="/">
             <Button size="lg">Guide Me Home</Button>
           </Link>

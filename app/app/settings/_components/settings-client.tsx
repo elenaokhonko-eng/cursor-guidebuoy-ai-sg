@@ -15,17 +15,22 @@ import Link from "next/link"
 import { ReferralWidget } from "@/components/referral-widget"
 import { useSupabase } from "@/components/providers/supabase-provider"
 
+type Profile = {
+  full_name?: string | null
+  phone_number?: string | null
+} & Record<string, unknown>
+
 type SettingsClientProps = {
   initialUser: User
-  initialProfile: any
+  initialProfile: Profile | null
 }
 
 export default function SettingsClient({ initialUser, initialProfile }: SettingsClientProps) {
   const router = useRouter()
   const supabase = useSupabase()
 
-  const [user, setUser] = useState<User | null>(initialUser)
-  const [profile, setProfile] = useState<any>(initialProfile)
+  const [user] = useState<User | null>(initialUser)
+  const [profile] = useState<Profile | null>(initialProfile)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [notifications, setNotifications] = useState({

@@ -64,11 +64,20 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ transcription })
-  } catch (error: any) {
+  } catch (error) {
     console.error("[v0] Gemini transcription error (Google SDK):", error)
-    if (error.response?.data) {
-      console.error("Error details:", JSON.stringify(error.response.data, null, 2))
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: { data?: unknown } }).response === "object"
+    ) {
+      const responseData = (error as { response?: { data?: unknown } }).response?.data
+      if (responseData) {
+        console.error("Error details:", JSON.stringify(responseData, null, 2))
+      }
     }
-    return NextResponse.json({ error: error.message || "Failed to transcribe audio" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Failed to transcribe audio"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

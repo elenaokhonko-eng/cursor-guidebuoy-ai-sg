@@ -29,7 +29,7 @@ export async function uploadEvidence(
   const filePath = `${caseId}/${category}/${fileName}`
 
   // Upload to Supabase Storage
-  const { data: uploadData, error: uploadError } = await supabase.storage.from("evidence").upload(filePath, file, {
+  const { error: uploadError } = await supabase.storage.from("evidence").upload(filePath, file, {
     cacheControl: "3600",
     upsert: false,
   })

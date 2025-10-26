@@ -1,10 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { trackServerEvent } from "@/lib/analytics/server"
 
 // Best-effort anonymization for MVP: scrub textual fields, delete evidence files/rows,
 // mark cases anonymized and log analytics events. In production, move to a queue/job.
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createClient()
     const {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       .select("id")
       .or(`user_id.eq.${user.id},owner_user_id.eq.${user.id},creator_user_id.eq.${user.id}`)
 
-    const caseIds = (cases || []).map((c: any) => c.id)
+    const caseIds = (cases ?? []).map((c: { id: string }) => c.id)
 
     // Delete evidence files + rows for each case (storage objects are named by file_path)
     if (caseIds.length > 0) {

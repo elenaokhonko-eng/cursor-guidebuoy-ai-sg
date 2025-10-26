@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,29 +15,39 @@ interface CaseCollaboratorsProps {
   currentUserId: string
 }
 
+type Collaborator = {
+  id: string
+  role: string
+  user_id: string | null
+  profiles?: {
+    full_name?: string | null
+    email?: string | null
+  } | null
+}
+
 export default function CaseCollaborators({ caseId, isOwner, currentUserId }: CaseCollaboratorsProps) {
   const supabase = useSupabase()
-  const [collaborators, setCollaborators] = useState<any[]>([])
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([])
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] = useState("helper")
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
 
-  useEffect(() => {
-    fetchCollaborators()
-  }, [caseId])
-
-  const fetchCollaborators = async () => {
+  const fetchCollaborators = useCallback(async () => {
     const { data, error } = await supabase
       .from("case_collaborators")
       .select("*, profiles(full_name, email)")
       .eq("case_id", caseId)
 
     if (!error && data) {
-      setCollaborators(data)
+      setCollaborators(data as Collaborator[])
     }
     setIsLoading(false)
-  }
+  }, [caseId, supabase])
+
+  useEffect(() => {
+    void fetchCollaborators()
+  }, [fetchCollaborators])
 
   const handleInvite = async () => {
     if (!inviteEmail) return
@@ -69,7 +79,7 @@ export default function CaseCollaborators({ caseId, isOwner, currentUserId }: Ca
     const { error } = await supabase.from("case_collaborators").delete().eq("id", collaboratorId)
 
     if (!error) {
-      fetchCollaborators()
+      void fetchCollaborators()
     }
   }
 

@@ -22,7 +22,7 @@ export async function trackServerEvent(payload: AnalyticsEventPayload) {
   const { error } = await supabase.from("analytics_events").insert(record)
   if (error) {
     const analyticsError = new Error(`Failed to record analytics event "${payload.eventName}": ${error.message}`)
-    ;(analyticsError as any).cause = error
+    ;(analyticsError as Error & { cause?: unknown }).cause = error
     throw analyticsError
   }
 }

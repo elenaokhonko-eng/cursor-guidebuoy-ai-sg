@@ -13,10 +13,8 @@ import { createRouterSession, getSessionToken, updateRouterSession } from "@/lib
 export default function RouterPage() {
   const [isRecording, setIsRecording] = useState(false)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
   const [narrative, setNarrative] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputMethod, setInputMethod] = useState<"voice" | "text">("text")
   const router = useRouter()
 
@@ -25,10 +23,7 @@ export default function RouterPage() {
     const initSession = async () => {
       const existingToken = getSessionToken()
       if (!existingToken) {
-        const session = await createRouterSession()
-        if (session) {
-          setSessionId(session.id)
-        }
+        await createRouterSession()
       }
     }
     initSession()
@@ -60,12 +55,10 @@ export default function RouterPage() {
             console.error("[v0] Transcription upload error:", err)
             alert("Failed to transcribe recording")
           } finally {
-            setAudioChunks([])
           }
         }
         recorder.start()
         setMediaRecorder(recorder)
-        setAudioChunks(chunks)
         setIsRecording(true)
       } catch (error) {
         console.error("[v0] Error accessing microphone:", error)

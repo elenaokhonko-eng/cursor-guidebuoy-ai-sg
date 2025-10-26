@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { nanoid } from "nanoid"
+import type { PostgrestError } from "@supabase/supabase-js"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createClient as createServerSupabase } from "@/lib/supabase/server"
 import { rateLimit, keyFrom } from "@/lib/rate-limit"
@@ -67,8 +68,9 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServiceClient()
-  let data: any = null
-  let error: any = null
+  type RouterSessionRow = Record<string, unknown>
+  let session: RouterSessionRow | null = null
+  let fetchError: PostgrestError | null = null
 
   if (token) {
     const result = await supabase
@@ -76,8 +78,8 @@ export async function GET(request: NextRequest) {
       .select("*")
       .eq("session_token", token)
       .maybeSingle()
-    data = result.data
-    error = result.error
+    session = (result.data as RouterSessionRow | null) ?? null
+    fetchError = result.error
   } else if (convertedFor) {
     const authClient = await createServerSupabase()
     const {
@@ -94,20 +96,20 @@ export async function GET(request: NextRequest) {
       .order("conversion_date", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle()
-    data = result.data
-    error = result.error
+    session = (result.data as RouterSessionRow | null) ?? null
+    fetchError = result.error
   }
 
-  if (error) {
-    console.error("[router/session] fetch error:", error)
+  if (fetchError) {
+    console.error("[router/session] fetch error:", fetchError)
     return NextResponse.json({ error: "Failed to fetch router session" }, { status: 500 })
   }
 
-  if (!data) {
+  if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 })
   }
 
-  return NextResponse.json({ session: data })
+  return NextResponse.json({ session })
 }
 
 export async function PATCH(request: NextRequest) {

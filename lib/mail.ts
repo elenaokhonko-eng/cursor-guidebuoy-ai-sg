@@ -39,10 +39,20 @@ export function getMailer() {
   return transporter
 }
 
-function isRetryable(error: any) {
-  if (!error) return false
-  if (error.code && RETRYABLE_ERROR_CODES.has(error.code)) return true
-  if (typeof error.responseCode === "number" && RETRYABLE_SMTP_CODES.has(error.responseCode)) return true
+type TransportError = {
+  code?: string
+  responseCode?: number
+  message?: string
+  stack?: string
+}
+
+function isRetryable(error: unknown) {
+  if (typeof error !== "object" || error === null) return false
+  const transportError = error as TransportError
+  if (transportError.code && RETRYABLE_ERROR_CODES.has(transportError.code)) return true
+  if (typeof transportError.responseCode === "number" && RETRYABLE_SMTP_CODES.has(transportError.responseCode)) {
+    return true
+  }
   return false
 }
 
@@ -61,13 +71,14 @@ async function sendWithRetry(
       envelopeTo: result.envelope?.to,
     })
     return result
-  } catch (error: any) {
+  } catch (error) {
+    const transportError = (typeof error === "object" && error !== null ? (error as TransportError) : {}) as TransportError
     const metadata = {
       to: options.to,
       subject: options.subject,
       attempt,
-      code: error?.code,
-      responseCode: error?.responseCode,
+      code: transportError.code,
+      responseCode: transportError.responseCode,
     }
 
     if (attempt < MAX_RETRIES && isRetryable(error)) {
@@ -79,8 +90,8 @@ async function sendWithRetry(
 
     log.error("Email delivery failed", {
       ...metadata,
-      error: error?.message ?? String(error),
-      stack: error?.stack,
+      error: transportError.message ?? String(error),
+      stack: transportError.stack,
     })
     throw error
   }

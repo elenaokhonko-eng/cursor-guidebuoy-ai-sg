@@ -10,7 +10,6 @@ import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 export default function InvitationAcceptPage() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [message, setMessage] = useState("")
-  const [caseId, setCaseId] = useState<string | null>(null)
   const router = useRouter()
   const params = useParams()
   const token = params.token as string
@@ -40,7 +39,6 @@ export default function InvitationAcceptPage() {
         if (response.ok) {
           setStatus("success")
           setMessage("You've successfully joined the case!")
-          setCaseId(data.caseId)
           setTimeout(() => {
             router.push(`/app/case/${data.caseId}/dashboard`)
           }, 2000)

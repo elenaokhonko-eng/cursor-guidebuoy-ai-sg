@@ -9,7 +9,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 40,
 }
 
-const consoleWriters: Record<LogLevel, (message?: any, ...optionalParams: any[]) => void> = {
+const consoleWriters: Record<LogLevel, (entry: string) => void> = {
   debug: console.debug.bind(console),
   info: console.info.bind(console),
   warn: console.warn.bind(console),

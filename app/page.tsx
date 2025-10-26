@@ -10,16 +10,13 @@ import { Badge } from "@/components/ui/badge"
 import { Mic, MicOff, Loader2, ArrowRight, FileText } from "lucide-react"
 import Link from "next/link"
 import { createRouterSession, getSessionToken, updateRouterSession } from "@/lib/router-session"
-import { useSupabase } from "@/components/providers/supabase-provider"
 import { trackClientEvent } from "@/lib/analytics/client"
 
 export default function LandingPage() {
   const [isRecording, setIsRecording] = useState(false)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
   const [narrative, setNarrative] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
   const [inputMethod, setInputMethod] = useState<"voice" | "text">("text")
   const [waitlistFirstName, setWaitlistFirstName] = useState("")
   const [waitlistLastName, setWaitlistLastName] = useState("")
@@ -27,17 +24,13 @@ export default function LandingPage() {
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false)
   const router = useRouter()
-  const supabase = useSupabase()
 
   useEffect(() => {
     // Initialize or retrieve session
     const initSession = async () => {
       const existingToken = getSessionToken()
       if (!existingToken) {
-        const session = await createRouterSession()
-        if (session) {
-          setSessionId(session.id)
-        }
+        await createRouterSession()
       }
     }
     initSession()
@@ -69,12 +62,10 @@ export default function LandingPage() {
             console.error("[v0] Transcription upload error:", err)
             alert("Failed to transcribe recording")
           } finally {
-            setAudioChunks([])
           }
         }
         recorder.start()
         setMediaRecorder(recorder)
-        setAudioChunks(chunks)
         setIsRecording(true)
       } catch (error) {
         console.error("[v0] Error accessing microphone:", error)
@@ -116,7 +107,7 @@ export default function LandingPage() {
     }
   }
 
-  const trackWaitlistEvent = async (eventName: string, eventData: any) => {
+  const trackWaitlistEvent = async (eventName: string, eventData: Record<string, unknown>) => {
     await trackClientEvent({
       eventName,
       eventData,

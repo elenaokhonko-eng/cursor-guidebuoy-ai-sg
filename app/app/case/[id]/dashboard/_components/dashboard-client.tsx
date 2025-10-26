@@ -16,19 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
-import {
-  FileText,
-  Upload,
-  Download,
-  UserPlus,
-  CheckCircle,
-  AlertCircle,
-  ArrowRight,
-  Loader2,
-  ImageIcon,
-  Trash2,
-  Send,
-} from "lucide-react"
+import { FileText, Upload, Download, CheckCircle, AlertCircle, ArrowRight, Loader2, ImageIcon, Trash2 } from "lucide-react"
 
 const intakeQuestions = [
   { key: "institution_name", question: "What is the name of the financial institution?", type: "text", required: true, placeholder: "e.g., DBS Bank, OCBC Bank, Great Eastern" },
@@ -48,11 +36,22 @@ interface UploadedFile {
   category: string
 }
 
+type CaseSummary = {
+  user_id?: string | null
+  claim_type?: string | null
+  status?: string | null
+  eligibility_status?: "eligible" | "out_of_scope" | "pending" | null
+  claim_amount?: number | null
+  strength_score?: "low" | "medium" | "high" | null
+} & Record<string, unknown>
+
+type PaymentSummary = Record<string, unknown> | null
+
 type DashboardClientProps = {
   caseId: string
   initialUser: User
-  initialCase: any
-  initialPayment: any | null
+  initialCase: CaseSummary
+  initialPayment: PaymentSummary
   initialResponses: Array<{ question_key: string; response_value: string; response_type?: string }>
   initialFiles: UploadedFile[]
 }
@@ -61,9 +60,9 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const supabase = useSupabase()
   const router = useRouter()
 
-  const [user, setUser] = useState<User | null>(initialUser)
-  const [caseData, setCaseData] = useState<any>(initialCase)
-  const [payment, setPayment] = useState<any | null>(initialPayment)
+  const user: User | null = initialUser
+  const caseData: CaseSummary | null = initialCase
+  const payment = initialPayment
   const [currentIntakeStep, setCurrentIntakeStep] = useState(0)
   const [intakeResponses, setIntakeResponses] = useState<Record<string, string>>(() => {
     const map: Record<string, string> = {}
@@ -77,9 +76,6 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const [isDragging, setIsDragging] = useState(false)
   const [uploadErrors, setUploadErrors] = useState<string[]>([])
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false)
-  const [helperEmail, setHelperEmail] = useState("")
-  const [isSendingInvite, setIsSendingInvite] = useState(false)
-  const [inviteSent, setInviteSent] = useState(false)
 
   const intakeComplete = useMemo(() => intakeQuestions.every((q) => !q.required || intakeResponses[q.key]), [intakeResponses])
 
@@ -197,24 +193,6 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
     [user],
   )
 
-  const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e.dataTransfer.files) }, [handleFileUpload])
-  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }, [])
-  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false) }, [])
-
-  const handleSendInvite = async () => {
-    if (!helperEmail || !user) return
-    setIsSendingInvite(true)
-    try {
-      const response = await fetch(`/api/cases/${caseId}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: helperEmail }) })
-      if (response.ok) { setInviteSent(true); setHelperEmail(""); setTimeout(() => setInviteSent(false), 3000) }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Error sending invite:", error)
-    } finally {
-      setIsSendingInvite(false)
-    }
-  }
-
   const handleCheckout = async () => {
     try {
       setIsCreatingCheckout(true)
@@ -317,7 +295,15 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
                 </div>
                 <div className="flex-1">
                   <CardTitle className="text-xl mb-2 text-balance">
-                    {!payment ? "Ready to unlock your case pack?" : !intakeComplete ? "Let's build your case story" : uploadedFiles.length === 0 ? "Upload your evidence" : "Your case is ready!"}
+                    {!payment ? (
+                      "Ready to unlock your case pack?"
+                    ) : !intakeComplete ? (
+                      <>Let{"'"}s build your case story</>
+                    ) : uploadedFiles.length === 0 ? (
+                      "Upload your evidence"
+                    ) : (
+                      "Your case is ready!"
+                    )}
                   </CardTitle>
                   <p className="text-muted-foreground mb-4 text-pretty">
                     {!payment ? "Get professional documents and step-by-step guidance for S$99." : !intakeComplete ? "Answer a few questions to build a strong foundation for your FIDReC submission." : uploadedFiles.length === 0 ? "Add supporting documents to strengthen your case." : "Review your information and generate your professional case pack."}
@@ -466,7 +452,7 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
               <CardContent className="pt-6">
                 <div className="text-center">
                   <h3 className="font-semibold text-xl mb-2">Ready to Generate Your Case Pack!</h3>
-                  <p className="text-muted-foreground mb-6">You've completed intake and uploaded {uploadedFiles.length} pieces of evidence. Generate your professional FIDReC documents now.</p>
+                  <p className="text-muted-foreground mb-6">You{"'"}ve completed intake and uploaded {uploadedFiles.length} pieces of evidence. Generate your professional FIDReC documents now.</p>
                   <Button size="lg" className="rounded-full"><Download className="h-5 w-5 mr-2" />Generate & Download Case Pack</Button>
                 </div>
               </CardContent>

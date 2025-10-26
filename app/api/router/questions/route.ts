@@ -11,14 +11,14 @@ if (!API_KEY) {
 const genAI = new GoogleGenerativeAI(API_KEY)
 const modelName = "gemini-2.5-flash"
 
-function scrub(obj: any): any {
+function scrub<T>(obj: T): T {
   try {
     const json = JSON.stringify(obj)
       .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
       .replace(/\b([STFG]\d{7}[A-Z])\b/gi, "[REDACTED_NRIC]")
       .replace(/\b(\+?65[- ]?)?\d{4}[- ]?\d{4}\b/g, "[REDACTED_PHONE]")
       .replace(/\b\d{12,16}\b/g, "[REDACTED_ACCOUNT]")
-    return JSON.parse(json)
+    return JSON.parse(json) as T
   } catch {
     return obj
   }
@@ -26,7 +26,7 @@ function scrub(obj: any): any {
 
 const questionRequestSchema = z.object({
   session_token: z.string().min(1, "session_token is required"),
-  classification: z.record(z.any(), z.any()),
+  classification: z.record(z.string(), z.unknown()),
 })
 
 export async function POST(request: NextRequest) {
@@ -92,9 +92,9 @@ JSON Output:`
       response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
       ""
 
-    let data
+    let data: Record<string, unknown>
     try {
-      data = JSON.parse(rawText)
+      data = JSON.parse(rawText) as Record<string, unknown>
     } catch (err) {
       console.error("[v0] Questions JSON parse error:", err, rawText)
       return NextResponse.json({ error: "Unable to parse generated questions" }, { status: 502 })
@@ -103,8 +103,16 @@ JSON Output:`
     return NextResponse.json(data)
   } catch (error) {
     console.error("[v0] Questions generation error:", error)
-    if ((error as any).response?.data) {
-      console.error("API Error details:", JSON.stringify((error as any).response.data, null, 2))
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: { data?: unknown } }).response === "object"
+    ) {
+      const responseData = (error as { response?: { data?: unknown } }).response?.data
+      if (responseData) {
+        console.error("API Error details:", JSON.stringify(responseData, null, 2))
+      }
     }
     return NextResponse.json({ error: "Failed to generate questions" }, { status: 500 })
   }

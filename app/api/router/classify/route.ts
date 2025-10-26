@@ -108,7 +108,7 @@ JSON Output:`
       response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
       ""
 
-    const rawPreview = rawText.length > 1000 ? `${rawText.slice(0, 1000)}…` : rawText
+    const rawPreview = rawText.length > 1000 ? `${rawText.slice(0, 1000)}...` : rawText
     log.debug("Gemini classification raw response", {
       preview: rawPreview,
       characters: rawText.length,
@@ -121,7 +121,7 @@ JSON Output:`
         throw new Error("Parsed JSON is missing required fields.")
       }
       log.info("Gemini classification parsed", { classification: classificationResult })
-    } catch (parseError: any) {
+    } catch (parseError) {
       log.warn("Classification JSON parse error", {
         error: parseError instanceof Error ? parseError.message : String(parseError),
         rawPreview: rawText.slice(0, 400),
@@ -158,15 +158,29 @@ JSON Output:`
       keyEntities: classificationResult.key_entities,
       nextSteps,
     })
-  } catch (error: any) {
-    log.error("Classification API error", {
-      error: error?.message ?? String(error),
-      stack: error?.stack,
-      status: error?.response?.status,
-    })
-    if (error?.response?.data) {
-      log.debug("Classification API error payload", { payload: error.response.data })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error ? error.stack : undefined
+    let status: number | undefined
+    let payload: unknown
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: { status?: number; data?: unknown } }).response === "object"
+    ) {
+      const response = (error as { response?: { status?: number; data?: unknown } }).response
+      status = response?.status
+      payload = response?.data
     }
-    return NextResponse.json({ error: error?.message || "Failed to classify case" }, { status: 500 })
+    log.error("Classification API error", {
+      error: message,
+      stack,
+      status,
+    })
+    if (payload !== undefined) {
+      log.debug("Classification API error payload", { payload })
+    }
+    return NextResponse.json({ error: message || "Failed to classify case" }, { status: 500 })
   }
 }

@@ -11,14 +11,14 @@ if (!API_KEY) {
 const genAI = new GoogleGenerativeAI(API_KEY)
 const modelName = "gemini-2.5-flash"
 
-function scrub(obj: any): any {
+function scrub<T>(obj: T): T {
   try {
     const json = JSON.stringify(obj)
       .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
       .replace(/\b([STFG]\d{7}[A-Z])\b/gi, "[REDACTED_NRIC]")
       .replace(/\b(\+?65[- ]?)?\d{4}[- ]?\d{4}\b/g, "[REDACTED_PHONE]")
       .replace(/\b\d{12,16}\b/g, "[REDACTED_ACCOUNT]")
-    return JSON.parse(json)
+    return JSON.parse(json) as T
   } catch {
     return obj
   }
@@ -26,8 +26,8 @@ function scrub(obj: any): any {
 
 const assessSchema = z.object({
   session_token: z.string().min(1, "session_token is required"),
-  classification: z.record(z.any(), z.any()),
-  responses: z.record(z.any(), z.any()),
+  classification: z.record(z.string(), z.unknown()),
+  responses: z.record(z.string(), z.unknown()),
 })
 
 export async function POST(request: NextRequest) {
@@ -98,9 +98,9 @@ JSON Output:`
       response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
       ""
 
-    let assessment
+    let assessment: Record<string, unknown>
     try {
-      assessment = JSON.parse(rawText)
+      assessment = JSON.parse(rawText) as Record<string, unknown>
     } catch (err) {
       console.error("[v0] Assessment JSON parse error:", err, rawText)
       return NextResponse.json({ error: "Unable to parse assessment result" }, { status: 502 })
@@ -109,8 +109,16 @@ JSON Output:`
     return NextResponse.json(assessment)
   } catch (error) {
     console.error("[v0] Assessment error:", error)
-    if ((error as any).response?.data) {
-      console.error("API Error details:", JSON.stringify((error as any).response.data, null, 2))
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: { data?: unknown } }).response === "object"
+    ) {
+      const responseData = (error as { response?: { data?: unknown } }).response?.data
+      if (responseData) {
+        console.error("API Error details:", JSON.stringify(responseData, null, 2))
+      }
     }
     return NextResponse.json({ error: "Assessment failed" }, { status: 500 })
   }

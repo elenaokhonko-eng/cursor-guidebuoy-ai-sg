@@ -48,7 +48,7 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [initialUser, supabase])
 
   const handleWaitlistSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -178,8 +178,8 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
             ) : (
               <Card className="p-6 bg-accent/20 border-accent max-w-md mx-auto">
                 <CardContent className="p-0 text-center">
-                  <h3 className="font-semibold text-lg mb-2">You're on the list!</h3>
-                  <p className="text-muted-foreground">We'll notify you when GuideBuoy AI launches in December.</p>
+                  <h3 className="font-semibold text-lg mb-2">You{"'"}re on the list!</h3>
+                  <p className="text-muted-foreground">We{"'"}ll notify you when GuideBuoy AI launches in December.</p>
                 </CardContent>
               </Card>
             )}
@@ -190,7 +190,7 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
       {/* Prototype Banner */}
       <div className="bg-accent/20 border-b border-accent/30 py-2">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-accent-foreground">You're viewing an interactive prototype.</p>
+          <p className="text-sm text-accent-foreground">You{"'"}re viewing an interactive prototype.</p>
         </div>
       </div>
 
@@ -213,7 +213,7 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
             </h1>
 
             <p className="text-xl lg:text-2xl text-muted-foreground text-pretty mb-12 max-w-3xl mx-auto leading-relaxed">
-              Banks and insurers can be overwhelming. I'm Lumi, your AI guide. I'll help you build a strong, clear
+              Banks and insurers can be overwhelming. I{"'"}m Lumi, your AI guide. I{"'"}ll help you build a strong, clear
               FIDReC case in under 60 minutes.
             </p>
 
@@ -240,7 +240,7 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
                   </div>
                   <h3 className="font-semibold text-lg mb-3">Tell Your Story</h3>
                   <p className="text-muted-foreground">
-                    Share what happened in simple terms. I'll guide you through the key details.
+                    Share what happened in simple terms. I{"'"}ll guide you through the key details.
                   </p>
                 </CardContent>
               </Card>
@@ -252,7 +252,7 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
                   </div>
                   <h3 className="font-semibold text-lg mb-3">Build Evidence</h3>
                   <p className="text-muted-foreground">
-                    Upload documents and I'll help organize them into a compelling case.
+                    Upload documents and I{"'"}ll help organize them into a compelling case.
                   </p>
                 </CardContent>
               </Card>
@@ -283,7 +283,7 @@ export default function HomeClient({ initialUser }: { initialUser: User | null }
                   AI Co-pilot
                 </Badge>
                 <p className="text-sm text-muted-foreground">
-                  We're your AI assistant, not a law firm. Professional guidance without legal advice.
+                  We{"'"}re your AI assistant, not a law firm. Professional guidance without legal advice.
                 </p>
               </div>
 

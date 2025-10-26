@@ -40,13 +40,13 @@ export async function POST(request: NextRequest) {
     // Add to waitlist
     const displayName = name || [first_name, last_name].filter(Boolean).join(" ") || null
 
-    const insertPayload: Record<string, any> = {
+    const insertPayload: { email: string; name: string | null; source: string } = {
       email,
       name: displayName,
       source,
     }
 
-    const { data: waitlistEntry, error: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from("waitlist")
       .upsert(insertPayload, { onConflict: "email" })
       .select()

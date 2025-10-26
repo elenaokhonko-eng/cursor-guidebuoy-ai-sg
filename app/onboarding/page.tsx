@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,14 +14,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, CheckCircle, ArrowRight, User, Bell, FileText, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { trackClientEvent } from "@/lib/analytics/client"
+import type { RouterSession } from "@/lib/router-session"
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [hasRouterSession, setHasRouterSession] = useState(false)
-  const [routerSessionData, setRouterSessionData] = useState<any>(null)
+  const [routerSessionData, setRouterSessionData] = useState<RouterSession | null>(null)
 
   // Form data
   const [fullName, setFullName] = useState("")
@@ -57,7 +59,7 @@ export default function OnboardingPage() {
           credentials: "include",
         })
         if (res.ok) {
-          const { session } = (await res.json()) as { session: any }
+          const { session } = (await res.json()) as { session: RouterSession | null }
           if (session) {
             setHasRouterSession(true)
             setRouterSessionData(session)
@@ -88,6 +90,9 @@ export default function OnboardingPage() {
   }, [router])
 
   const handleNext = async () => {
+    if (!user) {
+      return
+    }
     if (currentStep === 1) {
       // Save profile data
       setIsSaving(true)

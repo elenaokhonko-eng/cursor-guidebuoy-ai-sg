@@ -1,3 +1,5 @@
+import type { NextRequest } from "next/server"
+
 type Hit = { count: number; expiresAt: number }
 
 const buckets = new Map<string, Hit>()
@@ -16,8 +18,8 @@ export function rateLimit(key: string, limit = 20, windowMs = 60_000): { ok: boo
   return { ok: true, remaining: Math.max(0, limit - hit.count), reset: hit.expiresAt }
 }
 
-export function keyFrom(request: Request, route: string) {
-  const ip = request.headers.get("x-forwarded-for") || (request as any).ip || "unknown"
+export function keyFrom(request: NextRequest, route: string) {
+  const headerIp = request.headers.get("x-forwarded-for")
+  const ip = headerIp?.split(",")[0]?.trim() ?? request.ip ?? "unknown"
   return `${route}:${ip}`
 }
-
