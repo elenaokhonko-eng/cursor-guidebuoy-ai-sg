@@ -79,6 +79,14 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
   const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null)
   const [hasUnlockedCase, setHasUnlockedCase] = useState<boolean>(Boolean(payment))
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const stored = window.localStorage.getItem(`gb_case_unlocked_${caseId}`)
+    if (stored === "true") {
+      setHasUnlockedCase(true)
+    }
+  }, [caseId])
+
   const intakeComplete = useMemo(() => intakeQuestions.every((q) => !q.required || intakeResponses[q.key]), [intakeResponses])
 
   const handleSignOut = async () => {
@@ -117,18 +125,26 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
     }
   }
 
+useEffect(() => {
+  if (typeof window === "undefined") return
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get("checkout")
+  if (status === "success" || status === "cancel") {
+    setCheckoutStatus(status)
+    if (status === "success") {
+      setHasUnlockedCase(true)
+      window.localStorage.setItem(`gb_case_unlocked_${caseId}`, "true")
+    }
+    window.history.replaceState({}, "", window.location.pathname)
+  }
+}, [caseId])
+
   useEffect(() => {
     if (typeof window === "undefined") return
-    const params = new URLSearchParams(window.location.search)
-    const status = params.get("checkout")
-    if (status === "success" || status === "cancel") {
-      setCheckoutStatus(status)
-      if (status === "success") {
-        setHasUnlockedCase(true)
-      }
-      window.history.replaceState({}, "", window.location.pathname)
+    if (hasUnlockedCase) {
+      window.localStorage.setItem(`gb_case_unlocked_${caseId}`, "true")
     }
-  }, [])
+  }, [hasUnlockedCase, caseId])
 
   useEffect(() => {
     if (checkoutStatus === "success") {
@@ -514,6 +530,8 @@ export default function DashboardClient({ caseId, initialUser, initialCase, init
     </div>
   )
 }
+
+
 
 
 
