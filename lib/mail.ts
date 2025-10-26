@@ -23,6 +23,13 @@ export function getMailer() {
 
   const auth = user && pass ? { user, pass } : undefined
 
+  console.log("[Mail] Attempting SMTP connection with config:", {
+    host,
+    port,
+    secure,
+    requireTLS,
+  })
+
   transporter = nodemailer.createTransport({
     host,
     port,

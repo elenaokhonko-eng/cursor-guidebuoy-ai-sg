@@ -2,7 +2,6 @@
 
 import type React from "react"
 
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,10 +11,25 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { getSessionToken, convertRouterSessionToUser, clearSessionToken } from "@/lib/router-session"
-import { buildAppUrl } from "@/lib/url"
+import type { RouterSession } from "@/lib/router-session"
+import { getSessionToken, clearSessionToken } from "@/lib/router-session"
 import { User, Heart } from "lucide-react"
 import { trackClientEvent } from "@/lib/analytics/client"
+
+type RegisterApiResponse = {
+  success: boolean
+  user: {
+    id: string
+    email?: string | null
+    [key: string]: unknown
+  }
+  sessionLinked?: boolean
+  routerSession?: RouterSession | null
+  sessionLinkError?: string | null
+  consentLogged?: boolean
+  welcomeEmailSent?: boolean
+  error?: string
+}
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("")
@@ -87,96 +101,110 @@ export default function SignUpPage() {
       return
     }
 
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
-    try {
-      const emailRedirectTo = buildAppUrl("/app")
+    const sessionToken = isFromRouter ? getSessionToken() : null
+    const consentPayload = {
+      purposes: pdpaConsentPurposes,
+      policyVersion: "1.0",
+      consentedAt: new Date().toISOString(),
+    }
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo,
-          data: {
-            role: role,
-          },
-        },
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+          sessionToken,
+          consent: consentPayload,
+        }),
       })
 
-      if (error) throw error
+      let result: RegisterApiResponse | null = null
+      try {
+        result = (await response.json()) as RegisterApiResponse
+      } catch (parseError) {
+        console.error("[signup] Failed to parse register API response:", parseError)
+      }
 
-      // Log PDPA consent
-      if (data.user) {
-        const consentPayload = {
-          user_id: data.user.id,
-          email,
-          consent_purposes: pdpaConsentPurposes,
-          policy_version: "1.0",
-          consented_at: new Date().toISOString(),
+      if (!response.ok || !result?.success || !result.user) {
+        const errorMessage = result?.error || "Registration failed"
+        setError(errorMessage)
+        if (!response.ok) {
+          console.error("[signup] Register API error response:", result)
         }
+        return
+      }
 
-        try {
-          const response = await fetch("/api/consent-log", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(consentPayload),
-          })
+      const {
+        user,
+        sessionLinked = false,
+        routerSession,
+        sessionLinkError,
+        consentLogged,
+        welcomeEmailSent,
+      } = result
+      const userId = user.id
 
-          if (!response.ok) {
-            console.warn("Consent log API returned non-OK status", await response.json().catch(() => ({})))
-          }
-        } catch (apiError) {
-          console.error("Consent log API error:", apiError)
-        }
+      await trackEvent("signup_complete", {
+        user_id: userId,
+        email,
+        role,
+        source: source || "direct",
+        timestamp: new Date().toISOString(),
+      })
 
-        await trackEvent("signup_complete", {
-          user_id: data.user.id,
-          email,
-          role: role,
-          source: source || "direct",
-          timestamp: new Date().toISOString(),
-        })
+      await trackEvent("consent_accepted", {
+        user_id: userId,
+        purposes: pdpaConsentPurposes,
+        timestamp: new Date().toISOString(),
+      })
 
-        await trackEvent("consent_accepted", {
-          user_id: data.user.id,
-          purposes: pdpaConsentPurposes,
-          timestamp: new Date().toISOString(),
-        })
-
-        let hasRouterSession = false
-        if (isFromRouter) {
-          const sessionToken = getSessionToken()
-          if (sessionToken) {
-            const conversionResult = await convertRouterSessionToUser(sessionToken, data.user.id)
-            if (conversionResult.success) {
-              hasRouterSession = true
-              clearSessionToken()
+      if (isFromRouter && sessionToken) {
+        if (sessionLinked) {
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem("converted_router_session_token", sessionToken)
+            } catch {
+              // Ignore storage errors (e.g., Safari private mode)
             }
           }
-        }
 
-        try {
-          await fetch("/api/email/welcome", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userEmail: email,
-              userName: email.split("@")[0],
-              hasRouterSession,
-            }),
+          await trackClientEvent({
+            eventName: "router_conversion_complete",
+            userId,
+            sessionId: sessionToken,
+            eventData: {
+              session_id: routerSession?.id,
+              recommended_path: routerSession?.recommended_path,
+              eligibility_score: routerSession?.eligibility_assessment?.eligibility_score,
+            },
+            pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
           })
-        } catch (emailError) {
-          console.error("[v0] Welcome email failed:", emailError)
-          // Do not block signup if email fails
-        }
 
-        router.push("/onboarding")
+          clearSessionToken()
+        } else if (sessionLinkError) {
+          console.warn("[signup] Router session linking failed:", sessionLinkError)
+        } else {
+          console.warn("[signup] Router session token present but link was not confirmed.")
+        }
       }
+
+      if (consentLogged === false) {
+        console.warn("[signup] Consent log was not recorded for user:", userId)
+      }
+      if (welcomeEmailSent === false) {
+        console.warn("[signup] Welcome email was not sent for user:", userId)
+      }
+
+      router.push("/onboarding")
     } catch (error: unknown) {
+      console.error("[signup] Unexpected signup error:", error)
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setIsLoading(false)

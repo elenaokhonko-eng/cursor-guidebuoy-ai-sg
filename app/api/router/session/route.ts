@@ -131,17 +131,39 @@ export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const { session_token, updates } = parsed
 
-  const { data, error } = await supabase
-    .from("router_sessions")
-    .update(updates)
-    .eq("session_token", session_token)
-    .select()
-    .single()
+  console.log(
+    `[Router Session Update] Attempting PATCH for sessionToken: ${session_token}, converting to userId: ${
+      updates.converted_to_user_id ?? "n/a"
+    }`,
+  )
 
-  if (error) {
-    console.error("[router/session] update error:", error)
+  try {
+    const { data, error } = await supabase
+      .from("router_sessions")
+      .update(updates)
+      .eq("session_token", session_token)
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    console.log(
+      `[Router Session Update] Update successful for sessionToken: ${session_token}, userId: ${
+        updates.converted_to_user_id ?? "n/a"
+      }. Result:`,
+      data,
+    )
+
+    return NextResponse.json({ session: data })
+  } catch (dbError) {
+    console.error(
+      `[Router Session Update] Update failed for sessionToken: ${session_token}, userId: ${
+        updates.converted_to_user_id ?? "n/a"
+      }:`,
+      dbError,
+    )
     return NextResponse.json({ error: "Failed to update router session" }, { status: 500 })
   }
-
-  return NextResponse.json({ session: data })
 }

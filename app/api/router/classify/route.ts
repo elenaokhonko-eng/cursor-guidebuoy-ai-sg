@@ -107,6 +107,7 @@ JSON Output:`
       response.text() ??
       response.candidates?.[0]?.content?.parts?.find((part) => "text" in part)?.text ??
       ""
+    console.log("[v0] Raw Gemini Classification Response:", rawText)
 
     const rawPreview = rawText.length > 1000 ? `${rawText.slice(0, 1000)}...` : rawText
     log.debug("Gemini classification raw response", {
