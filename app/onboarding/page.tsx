@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, CheckCircle, ArrowRight, User, Bell, FileText, Sparkles } from "lucide-react"
 import Link from "next/link"
-import type { RouterSession } from "@/lib/router-session"
 import { trackClientEvent } from "@/lib/analytics/client"
+import { updateRouterSession } from "@/lib/router-session"
 import type { RouterSession } from "@/lib/router-session"
 
 export default function OnboardingPage() {
@@ -35,6 +35,28 @@ export default function OnboardingPage() {
 
   const router = useRouter()
   const totalSteps = 4
+
+  const normaliseClaimType = (value?: string | null) => {
+    const normalized = (value || "").toLowerCase()
+    if (normalized.includes("mis") || normalized.includes("product")) return "mis_sold_product"
+    if (normalized.includes("denied") || normalized.includes("insurance")) return "denied_insurance"
+    return "phishing_scam"
+  }
+
+  const deriveEligibilityStatus = (recommendation?: string) => {
+    if (!recommendation) return "pending"
+    const normalized = recommendation.toLowerCase()
+    if (normalized.includes("police")) return "out_of_scope"
+    if (normalized.includes("financial")) return "pending"
+    return "pending"
+  }
+
+  const deriveStrengthScore = (score?: number) => {
+    if (typeof score !== "number") return null
+    if (score >= 70) return "high"
+    if (score >= 40) return "medium"
+    return "low"
+  }
 
   useEffect(() => {
     const initOnboarding = async () => {
@@ -158,21 +180,43 @@ export default function OnboardingPage() {
     }
 
     if (currentStep === 2 && hasRouterSession && importCase) {
-      // Import router session as case
+      if (!routerSessionData) {
+        setHasRouterSession(false)
+        setImportCase(false)
+        return setCurrentStep((step) => Math.min(totalSteps, step + 1))
+      }
+
       setIsSaving(true)
       const supabase = createClient()
 
       try {
+        const classification = (routerSessionData.classification_result ?? {}) as Record<string, any>
+        const eligibility = (routerSessionData.eligibility_assessment ?? {}) as Record<string, any>
+
+        const claimTypeValue =
+          typeof classification.claimType === "string"
+            ? classification.claimType
+            : typeof classification.claim_type === "string"
+              ? classification.claim_type
+              : undefined
+
+        const mappedClaimType = normaliseClaimType(claimTypeValue)
+        const recommendation =
+          typeof classification.recommendation === "string" ? classification.recommendation : undefined
+        const caseSummary = typeof classification.summary === "string" ? classification.summary : null
+        const eligibilityScore =
+          typeof eligibility.eligibility_score === "number" ? eligibility.eligibility_score : undefined
+
         const { data: newCase, error: caseError } = await supabase
           .from("cases")
           .insert({
             user_id: user.id,
             owner_user_id: user.id,
-            creator_user_id: user.id,
-            router_session_id: routerSessionData.session_token,
-            dispute_category: routerSessionData.classification_result?.category,
+            claim_type: mappedClaimType,
             status: "intake",
-            created_at: new Date().toISOString(),
+            case_summary: caseSummary,
+            eligibility_status: deriveEligibilityStatus(recommendation),
+            strength_score: deriveStrengthScore(eligibilityScore),
           })
           .select()
           .single()
@@ -183,9 +227,29 @@ export default function OnboardingPage() {
 
         if (newCase?.id) {
           setImportedCaseId(newCase.id)
+
+          try {
+            await updateRouterSession(routerSessionData.session_token, {
+              converted_to_case_id: newCase.id,
+              converted_to_user_id: user.id,
+              converted_at: new Date().toISOString(),
+            })
+
+            setRouterSessionData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    converted_to_case_id: newCase.id,
+                    converted_to_user_id: user.id,
+                    converted_at: new Date().toISOString(),
+                  }
+                : prev,
+            )
+          } catch (sessionUpdateError) {
+            console.error("[v0] Failed to mark router session as converted:", sessionUpdateError)
+          }
         }
 
-        // Track case import
         await trackClientEvent({
           eventName: "onboarding_case_imported",
           userId: user.id,
@@ -200,6 +264,7 @@ export default function OnboardingPage() {
     } else if (currentStep === 2) {
       setImportedCaseId(null)
     }
+
 
     if (currentStep === 3) {
       // Save notification preferences
@@ -531,3 +596,7 @@ export default function OnboardingPage() {
     </div>
   )
 }
+
+
+
+

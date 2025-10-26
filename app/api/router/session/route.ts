@@ -20,7 +20,7 @@ const updatePayloadSchema = z.object({
       recommended_path: z.enum(["fidrec_eligible", "waitlist", "self_service", "not_eligible"]).nullable().optional(),
       converted_to_case_id: z.string().uuid().nullable().optional(),
       converted_to_user_id: z.string().uuid().nullable().optional(),
-      conversion_date: z.string().datetime().nullable().optional(),
+      converted_at: z.string().datetime().nullable().optional(),
       expires_at: z.string().datetime().optional(),
     })
     .superRefine((value, ctx) => {
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       .from("router_sessions")
       .select("*")
       .eq("converted_to_user_id", convertedFor)
-      .order("conversion_date", { ascending: false, nullsFirst: false })
+      .order("converted_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle()
     session = (result.data as RouterSessionRow | null) ?? null

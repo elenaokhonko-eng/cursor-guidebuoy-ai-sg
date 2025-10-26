@@ -14,7 +14,8 @@ export interface RouterSession {
   created_at: string
   expires_at: string
   converted_to_user_id?: string
-  conversion_date?: string
+  converted_to_case_id?: string | null
+  converted_at?: string | null
 }
 
 export function generateSessionToken(): string {
@@ -112,7 +113,7 @@ export async function convertRouterSessionToUser(
         session_token: sessionToken,
         updates: {
           converted_to_user_id: userId,
-          conversion_date: new Date().toISOString(),
+          converted_at: new Date().toISOString(),
         },
       }),
     })
