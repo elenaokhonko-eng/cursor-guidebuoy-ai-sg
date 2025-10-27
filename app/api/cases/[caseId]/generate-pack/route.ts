@@ -93,14 +93,14 @@ export async function POST(_req: NextRequest, { params }: { params: { caseId: st
       .eq("id", caseId)
       .single()
 
-    const { data: caseResponses, error: responseError } = await supabaseServiceRole
+    const { data: caseResponsesRaw, error: responseError } = await supabaseServiceRole
       .from("case_responses")
-      .select("question, response")
+      .select("question_key, response_value")
       .eq("case_id", caseId)
 
-    const { data: evidenceFiles, error: evidenceError } = await supabaseServiceRole
+    const { data: evidenceFilesRaw, error: evidenceError } = await supabaseServiceRole
       .from("evidence")
-      .select("file_name, description, id")
+      .select("id, filename, description")
       .eq("case_id", caseId)
 
     if (caseError || responseError || evidenceError) {
@@ -113,18 +113,24 @@ export async function POST(_req: NextRequest, { params }: { params: { caseId: st
     }
 
     console.log(
-      `[Generate Pack] Fetched data for case ${caseId}: ${caseResponses?.length ?? 0} responses, ${evidenceFiles?.length ?? 0} evidence files.`,
+      `[Generate Pack] Fetched data for case ${caseId}: ${caseResponsesRaw?.length ?? 0} responses, ${evidenceFilesRaw?.length ?? 0} evidence files.`,
     )
 
-    const evidenceList = evidenceFiles?.map((file) => ({
-      fileName: file.file_name,
+    const evidenceList = evidenceFilesRaw?.map((file) => ({
+      fileName: file.filename,
       description: file.description ?? "N/A",
     }))
+
+    const intakeResponses =
+      caseResponsesRaw?.map((response) => ({
+        question: response.question_key,
+        response: response.response_value,
+      })) ?? []
 
     const aiInputData = {
       caseType: caseDetails.claim_type,
       caseSummary: caseDetails.case_summary,
-      intakeResponses: caseResponses ?? [],
+      intakeResponses,
       evidenceList: evidenceList ?? [],
     }
 
