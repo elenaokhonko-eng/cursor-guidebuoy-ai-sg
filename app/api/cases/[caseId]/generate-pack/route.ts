@@ -296,8 +296,10 @@ type FidrecCaseSummaryOutput = {
     console.log(`[Generate Pack] PDF generated (${pdfBytes.length} bytes).`)
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-    const filePath = `case-packs/${caseId}/${timestamp}_case_pack.pdf`
-    console.log(`[Generate Pack] Uploading PDF to Supabase Storage at ${filePath}...`)
+    const storagePrefix = STORAGE_BUCKET === "evidence" ? "case-packs" : ""
+    const filePathSegments = [storagePrefix, caseId, `${timestamp}_case_pack.pdf`].filter((segment) => segment.length > 0)
+    const filePath = filePathSegments.join("/")
+    console.log(`[Generate Pack] Uploading PDF to Supabase Storage (${STORAGE_BUCKET}) at ${filePath}...`)
 
     const { error: uploadError } = await supabaseServiceRole.storage
       .from(STORAGE_BUCKET)
