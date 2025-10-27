@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google-ai/generativelanguage"
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai"
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
